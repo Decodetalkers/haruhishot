@@ -1,0 +1,26 @@
+import { Button, VerticalBox } from "std-widgets.slint";
+
+import {globalImage, ImageShow} from "imageshow.slint";
+
+import { SelectPopUp , SelectPopUpSlots} from "selectpopup.slint";
+
+export {
+    SelectPopUp,
+    SelectPopUpSlots
+}
+
+export {
+    ImageShow,
+    globalImage
+}
+
+export AppWindow := Window {
+    property <int> shotpage : 0;
+
+    if (shotpage == 0) : SelectPopUp {
+    }
+    if (shotpage == 1) : ImageShow {
+        width: root.width;
+        height: root.height;
+    }
+}
