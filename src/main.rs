@@ -1,11 +1,11 @@
 use wayland_client::protocol::__interfaces::WL_OUTPUT_INTERFACE;
 use wayland_client::protocol::__interfaces::WL_SHM_INTERFACE;
-//use wayland_client::protocol::wl_output;
 use wayland_client::protocol::wl_output::WlOutput;
 use wayland_client::protocol::wl_shm::WlShm;
 use wayland_client::{protocol::wl_registry, Connection, Dispatch, QueueHandle};
+
+// wlr
 use wayland_protocols_wlr::screencopy::v1::client::__interfaces::ZWLR_SCREENCOPY_MANAGER_V1_INTERFACE;
-use wayland_protocols_wlr::screencopy::v1::client::zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1;
 use wayland_protocols_wlr::screencopy::v1::client::zwlr_screencopy_manager_v1::ZwlrScreencopyManagerV1;
 
 mod filewriter;
@@ -27,7 +27,7 @@ impl AppData {
         }
     }
 
-    fn get_alldata(&self) -> bool {
+    fn have_got_alldata(&self) -> bool {
         if self.displays.is_empty() {
             tracing::warn!("Cannot find any displays");
             return false;
@@ -124,17 +124,6 @@ impl Dispatch<ZwlrScreencopyManagerV1, ()> for AppData {
     }
 }
 
-impl Dispatch<ZwlrScreencopyFrameV1, ()> for AppData {
-    fn event(
-        _state: &mut Self,
-        _proxy: &ZwlrScreencopyFrameV1,
-        _event: <ZwlrScreencopyFrameV1 as wayland_client::Proxy>::Event,
-        _data: &(),
-        _conn: &Connection,
-        _qhandle: &QueueHandle<Self>,
-    ) {
-    }
-}
 // The main function of our program
 fn main() {
     tracing_subscriber::fmt::init();
@@ -168,7 +157,7 @@ fn take_screenshot() {
 
     // globals.
     event_queue.roundtrip(&mut state).unwrap();
-    if state.get_alldata() {
+    if state.have_got_alldata() {
         tracing::info!("All data is ready");
         let manager = state.wlr_screencopy.unwrap();
         let shm = state.shm.unwrap();

@@ -251,7 +251,7 @@ impl Dispatch<ZwlrScreencopyFrameV1, ()> for BufferData {
                 tracing::info!("Receive failed event");
                 state.state = ScreenCopyState::Failed;
             }
-            _ => {}
+            _ => unreachable!()
         }
     }
 }
