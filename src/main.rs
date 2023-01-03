@@ -11,7 +11,7 @@ use wayland_protocols_wlr::screencopy::v1::client::zwlr_screencopy_manager_v1::Z
 
 // clap
 
-use clap::{arg, Command};
+use clap::{arg, Arg, ArgAction, Command};
 
 // zip
 use std::iter::zip;
@@ -60,6 +60,10 @@ impl AppData {
         }
         if self.shm.is_none() {
             tracing::warn!("Compositer is missing wl_shm");
+            return false;
+        }
+        if self.xdg_output_manager.is_none() {
+            tracing::warn!("xdg_output_manage is missing");
             return false;
         }
 
@@ -243,23 +247,24 @@ enum ClapOption {
     ShotWithDefaultOption,
     ShotWithCoosedScreen {
         screen: String,
+        usestdout: bool,
     },
     ShotWithSlurp {
         pos_x: i32,
         pos_y: i32,
         width: i32,
         height: i32,
+        usestdout: bool,
     },
 }
 
 // The main function of our program
 fn main() {
-    tracing_subscriber::fmt::init();
 
     const VERSION: &str = env!("CARGO_PKG_VERSION");
 
     let matches = Command::new("haruhishot")
-        .about("Haruhi Suzumiya has made a wlr screenshot tool")
+        .about("One day Haruhi Suzumiya made a wlr screenshot tool")
         .version(VERSION)
         .author("Haruhi Suzumiya")
         .subcommand(
@@ -267,6 +272,12 @@ fn main() {
                 .long_flag("output")
                 .short_flag('O')
                 .arg(arg!(<Screen> ... "Screen"))
+                .arg(
+                    Arg::new("stdout")
+                        .long("stdout")
+                        .action(ArgAction::SetTrue)
+                        .help("to stdout"),
+                )
                 .about("Choose Output"),
         )
         .subcommand(
@@ -274,6 +285,12 @@ fn main() {
                 .long_flag("slurp")
                 .short_flag('S')
                 .arg(arg!(<Slurp> ... "Pos by slurp"))
+                .arg(
+                    Arg::new("stdout")
+                        .long("stdout")
+                        .action(ArgAction::SetTrue)
+                        .help("to stdout"),
+                )
                 .about("Slurp"),
         )
         .subcommand(
@@ -289,7 +306,11 @@ fn main() {
                 .get_one::<String>("Screen")
                 .expect("need one screen input")
                 .to_string();
-            take_screenshot(ClapOption::ShotWithCoosedScreen { screen });
+            let usestdout = submatchs.get_flag("stdout");
+            if !usestdout {
+                tracing_subscriber::fmt::init();
+            }
+            take_screenshot(ClapOption::ShotWithCoosedScreen { screen, usestdout });
         }
         Some(("slurp", submatchs)) => {
             let posmessage = submatchs
@@ -305,11 +326,16 @@ fn main() {
             let map: Vec<&str> = posmessage[1].split('x').collect();
             let width = map[0].parse::<i32>().unwrap();
             let height = map[1].parse::<i32>().unwrap();
+            let usestdout = submatchs.get_flag("stdout");
+            if !usestdout {
+                tracing_subscriber::fmt::init();
+            }
             take_screenshot(ClapOption::ShotWithSlurp {
                 pos_x,
                 pos_y,
                 width,
                 height,
+                usestdout,
             });
         }
         Some(("list_outputs", _)) => take_screenshot(ClapOption::ShowInfo),
@@ -365,31 +391,33 @@ fn take_screenshot(option: ClapOption) {
                     None,
                 );
                 match bufferdata {
-                    Some(data) => filewriter::write_to_file(data),
+                    Some(data) => filewriter::write_to_file(data, true),
                     None => tracing::error!("Nothing get, check the log"),
                 }
             }
-            ClapOption::ShotWithCoosedScreen { screen } => match state.get_select_id(screen) {
-                Some(id) => {
-                    let manager = state.wlr_screencopy.unwrap();
-                    let shm = state.shm.unwrap();
-                    let bufferdata = wlrbackend::capture_output_frame(
-                        &conn,
-                        &state.displays[id],
-                        manager,
-                        &display,
-                        shm,
-                        None,
-                    );
-                    match bufferdata {
-                        Some(data) => filewriter::write_to_file(data),
-                        None => tracing::error!("Nothing get, check the log"),
+            ClapOption::ShotWithCoosedScreen { screen, usestdout } => {
+                match state.get_select_id(screen) {
+                    Some(id) => {
+                        let manager = state.wlr_screencopy.unwrap();
+                        let shm = state.shm.unwrap();
+                        let bufferdata = wlrbackend::capture_output_frame(
+                            &conn,
+                            &state.displays[id],
+                            manager,
+                            &display,
+                            shm,
+                            None,
+                        );
+                        match bufferdata {
+                            Some(data) => filewriter::write_to_file(data, usestdout),
+                            None => tracing::error!("Nothing get, check the log"),
+                        }
+                    }
+                    None => {
+                        tracing::error!("Cannot find screen");
                     }
                 }
-                None => {
-                    tracing::error!("Cannot find screen");
-                }
-            },
+            }
             ClapOption::ShowInfo => {
                 let xdg_output_manager = state.xdg_output_manager.clone().unwrap();
                 for i in 0..state.displays.len() {
@@ -403,6 +431,7 @@ fn take_screenshot(option: ClapOption) {
                 pos_y,
                 width,
                 height,
+                usestdout,
             } => {
                 let xdg_output_manager = state.xdg_output_manager.clone().unwrap();
                 for i in 0..state.displays.len() {
@@ -423,7 +452,7 @@ fn take_screenshot(option: ClapOption) {
                             Some((pos_x, pos_y, width, height)),
                         );
                         match bufferdata {
-                            Some(data) => filewriter::write_to_file(data),
+                            Some(data) => filewriter::write_to_file(data, usestdout),
                             None => tracing::error!("Nothing get, check the log"),
                         }
                     }
