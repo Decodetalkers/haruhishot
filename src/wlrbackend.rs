@@ -262,13 +262,21 @@ pub fn capture_output_frame(
     manager: ZwlrScreencopyManagerV1,
     display: &WlDisplay,
     shm: wl_shm::WlShm,
+    slurpoption: Option<(i32, i32, i32, i32)>,
 ) -> Option<BufferData> {
     let mut event_queue = connection.new_event_queue();
     let qh = event_queue.handle();
 
     display.get_registry(&qh, ());
     let mut framesate = BufferData::new(shm);
-    manager.capture_output(0, output, &qh, ());
+    match slurpoption {
+        None => {
+            manager.capture_output(0, output, &qh, ());
+        }
+        Some((x, y, width, height)) => {
+            manager.capture_output_region(0, output, x, y, width, height, &qh, ());
+        }
+    }
     //event_queue.roundtrip(&mut framesate).unwrap();
     loop {
         event_queue.blocking_dispatch(&mut framesate).unwrap();

@@ -3,6 +3,8 @@ use wayland_client::protocol::wl_shm::WlShm;
 use wayland_client::Proxy;
 use wayland_client::{protocol::wl_registry, Connection, Dispatch, QueueHandle};
 
+//use wayland_protocols::xdg::xdg_output::zv1::client::zxdg_output_v1::{self, ZxdgOutputV1};
+
 // wlr
 use wayland_protocols_wlr::screencopy::v1::client::zwlr_screencopy_manager_v1::ZwlrScreencopyManagerV1;
 
@@ -142,6 +144,18 @@ impl Dispatch<WlOutput, ()> for AppData {
         }
     }
 }
+//impl Dispatch<ZxdgOutputV1, ()> for AppData {
+//    fn event(
+//            state: &mut Self,
+//            proxy: &ZxdgOutputV1,
+//            event: <ZxdgOutputV1 as Proxy>::Event,
+//            data: &(),
+//            conn: &Connection,
+//            qhandle: &QueueHandle<Self>,
+//        ) {
+//        println!("ss");
+//    }
+//}
 
 impl Dispatch<WlShm, ()> for AppData {
     fn event(
@@ -167,10 +181,20 @@ impl Dispatch<ZwlrScreencopyManagerV1, ()> for AppData {
     }
 }
 
+
+
 enum ClapOption {
     ShowInfo,
     ShotWithDefaultOption,
-    ShotWithCoosedScreen { screen: String },
+    ShotWithCoosedScreen {
+        screen: String,
+    },
+    ShotWithSlurp {
+        pos_x: i32,
+        pos_y: i32,
+        width: i32,
+        height: i32,
+    },
 }
 
 // The main function of our program
@@ -191,6 +215,13 @@ fn main() {
                 .about("Choose Output"),
         )
         .subcommand(
+            Command::new("slurp")
+                .long_flag("slurp")
+                .short_flag('S')
+                .arg(arg!(<Slurp> ... "Pos by slurp"))
+                .about("Slurp"),
+        )
+        .subcommand(
             Command::new("list_outputs")
                 .long_flag("list_outputs")
                 .short_flag('L')
@@ -204,6 +235,27 @@ fn main() {
                 .expect("need one screen input")
                 .to_string();
             take_screenshot(ClapOption::ShotWithCoosedScreen { screen });
+        }
+        Some(("slurp", submatchs)) => {
+            let posmessage = submatchs
+                .get_one::<String>("Slurp")
+                .expect("Need message")
+                .to_string();
+            let posmessage: Vec<&str> = posmessage.trim().split(' ').collect();
+            let position: Vec<&str> = posmessage[0].split(',').collect();
+
+            let pos_x = position[0].parse::<i32>().unwrap();
+            let pos_y = position[1].parse::<i32>().unwrap();
+
+            let map: Vec<&str> = posmessage[1].split('x').collect();
+            let width = map[0].parse::<i32>().unwrap();
+            let height = map[1].parse::<i32>().unwrap();
+            take_screenshot(ClapOption::ShotWithSlurp {
+                pos_x,
+                pos_y,
+                width,
+                height,
+            });
         }
         Some(("list_outputs", _)) => take_screenshot(ClapOption::ShowInfo),
         _ => take_screenshot(ClapOption::ShotWithDefaultOption),
@@ -255,6 +307,7 @@ fn take_screenshot(option: ClapOption) {
                     manager,
                     &display,
                     shm,
+                    None,
                 );
                 match bufferdata {
                     Some(data) => filewriter::write_to_file(data),
@@ -271,6 +324,7 @@ fn take_screenshot(option: ClapOption) {
                         manager,
                         &display,
                         shm,
+                        None,
                     );
                     match bufferdata {
                         Some(data) => filewriter::write_to_file(data),
@@ -283,6 +337,28 @@ fn take_screenshot(option: ClapOption) {
             },
             ClapOption::ShowInfo => {
                 state.print_display_info();
+            }
+            ClapOption::ShotWithSlurp {
+                pos_x,
+                pos_y,
+                width,
+                height,
+            } => {
+                let manager = state.wlr_screencopy.unwrap();
+                let shm = state.shm.unwrap();
+                // TODO: need zwlr_output to get position
+                let bufferdata = wlrbackend::capture_output_frame(
+                    &conn,
+                    &state.displays[0],
+                    manager,
+                    &display,
+                    shm,
+                    Some((pos_x, pos_y, width, height)),
+                );
+                match bufferdata {
+                    Some(data) => filewriter::write_to_file(data),
+                    None => tracing::error!("Nothing get, check the log"),
+                }
             }
         }
     }
