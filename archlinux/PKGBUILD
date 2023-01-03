@@ -1,0 +1,23 @@
+pkgname=haruhishot
+pkgver=0.2.0
+pkgrel=1.0
+pkgdesc='One day Haruhi Suzumiya made a wlr screenshot tool'
+arch=('x86_64' 'aarch64')
+url='https://github.com/Decodetalkers/haruhishot'
+license=('MIT')
+depends=('qt5-base')
+makedepends=('git' 'ninja' 'meson' 'rust')
+source=('source.tar.gz')
+sha512sums=('SKIP')
+
+build() {
+  meson setup \
+    -Dprefix=/usr \
+    -Dbuildtype=release \
+    build
+  ninja -C build
+}
+
+package() {
+	meson -C build install
+}
