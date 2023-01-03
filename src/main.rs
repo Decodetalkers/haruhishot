@@ -1,4 +1,4 @@
-use wayland_client::protocol::wl_output::WlOutput;
+use wayland_client::protocol::wl_output::{self, WlOutput};
 use wayland_client::protocol::wl_shm::WlShm;
 use wayland_client::Proxy;
 use wayland_client::{protocol::wl_registry, Connection, Dispatch, QueueHandle};
@@ -12,6 +12,9 @@ mod wlrbackend;
 // need any state, by this type still supports the `Dispatch` implementations.
 struct AppData {
     pub displays: Vec<WlOutput>,
+    pub display_names: Vec<String>,
+    pub display_description: Vec<String>,
+    pub display_size: Vec<(i32, i32)>,
     pub shm: Option<WlShm>,
     pub wlr_screencopy: Option<ZwlrScreencopyManagerV1>,
 }
@@ -20,6 +23,9 @@ impl AppData {
     fn new() -> Self {
         AppData {
             displays: Vec::new(),
+            display_names: Vec::new(),
+            display_description: Vec::new(),
+            display_size: Vec::new(),
             shm: None,
             wlr_screencopy: None,
         }
@@ -88,13 +94,25 @@ impl Dispatch<wl_registry::WlRegistry, ()> for AppData {
 
 impl Dispatch<WlOutput, ()> for AppData {
     fn event(
-        _state: &mut Self,
+        state: &mut Self,
         _proxy: &WlOutput,
-        _event: <WlOutput as wayland_client::Proxy>::Event,
+        event: <WlOutput as wayland_client::Proxy>::Event,
         _data: &(),
         _conn: &Connection,
         _qhandle: &QueueHandle<Self>,
     ) {
+        match event {
+            wl_output::Event::Name { name } => {
+                state.display_names.push(name);
+            }
+            wl_output::Event::Description { description } => {
+                state.display_description.push(description);
+            }
+            wl_output::Event::Mode { width, height, .. } => {
+                state.display_size.push((width, height));
+            }
+            _ => {}
+        }
     }
 }
 
@@ -154,6 +172,9 @@ fn take_screenshot() {
     let mut state = AppData::new();
 
     // globals.
+    event_queue.roundtrip(&mut state).unwrap();
+
+    // get output info
     event_queue.roundtrip(&mut state).unwrap();
     if state.have_got_alldata() {
         tracing::info!("All data is ready");
