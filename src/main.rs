@@ -108,8 +108,8 @@ impl AppData {
         ) {
             println!("{}, {},", displayname, display_description);
             println!("    Size: {},{}", x, y);
-            println!("    logicSize: {}, {}", logic_x, logic_y);
-            println!("    scale: {}", scale);
+            println!("    LogicSize: {}, {}", logic_x, logic_y);
+            println!("    Scale: {}", scale);
         }
     }
 }
