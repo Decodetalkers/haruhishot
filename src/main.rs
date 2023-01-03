@@ -3,7 +3,8 @@ use wayland_client::protocol::wl_shm::WlShm;
 use wayland_client::Proxy;
 use wayland_client::{protocol::wl_registry, Connection, Dispatch, QueueHandle};
 
-//use wayland_protocols::xdg::xdg_output::zv1::client::zxdg_output_v1::{self, ZxdgOutputV1};
+use wayland_protocols::xdg::xdg_output::zv1::client::zxdg_output_manager_v1::ZxdgOutputManagerV1;
+use wayland_protocols::xdg::xdg_output::zv1::client::zxdg_output_v1::{self, ZxdgOutputV1};
 
 // wlr
 use wayland_protocols_wlr::screencopy::v1::client::zwlr_screencopy_manager_v1::ZwlrScreencopyManagerV1;
@@ -24,8 +25,12 @@ struct AppData {
     pub display_names: Vec<String>,
     pub display_description: Vec<String>,
     pub display_size: Vec<(i32, i32)>,
+    display_postion: Vec<(i32, i32)>,
+    display_scale: Vec<i32>,
+    display_logic_size: Vec<(i32, i32)>,
     pub shm: Option<WlShm>,
     pub wlr_screencopy: Option<ZwlrScreencopyManagerV1>,
+    pub xdg_output_manager: Option<ZxdgOutputManagerV1>,
 }
 
 impl AppData {
@@ -35,8 +40,12 @@ impl AppData {
             display_names: Vec::new(),
             display_description: Vec::new(),
             display_size: Vec::new(),
+            display_postion: Vec::new(),
+            display_scale: Vec::new(),
+            display_logic_size: Vec::new(),
             shm: None,
             wlr_screencopy: None,
+            xdg_output_manager: None,
         }
     }
 
@@ -66,15 +75,37 @@ impl AppData {
         None
     }
 
+    fn get_pos_display_id(&self, pos: (i32, i32)) -> Option<usize> {
+        let (pos_x, pos_y) = pos;
+        for (i, ((width, height), (x, y))) in
+            zip(&self.display_logic_size, &self.display_postion).enumerate()
+        {
+            if pos_x >= *x && pos_x <= *x + *width && pos_y >= *y && pos_y <= *y + *height {
+                return Some(i);
+            }
+        }
+        None
+    }
+
+    fn get_real_pos(&self, pos: (i32, i32), id: usize) -> (i32, i32) {
+        let (x, y) = pos;
+        (
+            x - self.display_postion[id].0,
+            y - self.display_postion[id].1,
+        )
+    }
     fn print_display_info(&self) {
-        for ((displayname, display_description), (x, y)) in zip(
-            zip(&self.display_names, &self.display_description),
-            &self.display_size,
+        for (scale, ((displayname, display_description), ((logic_x, logic_y), (x, y)))) in zip(
+            &self.display_scale,
+            zip(
+                zip(&self.display_names, &self.display_description),
+                zip(&self.display_logic_size, &self.display_size),
+            ),
         ) {
-            println!(
-                "{}, {}, size: ({},{}) ",
-                displayname, display_description, x, y
-            );
+            println!("{}, {},", displayname, display_description);
+            println!("    Size: {},{}", x, y);
+            println!("    logicSize: {}, {}", logic_x, logic_y);
+            println!("    scale: {}", scale);
         }
     }
 }
@@ -116,6 +147,9 @@ impl Dispatch<wl_registry::WlRegistry, ()> for AppData {
             } else if interface == ZwlrScreencopyManagerV1::interface().name {
                 state.wlr_screencopy =
                     Some(registry.bind::<ZwlrScreencopyManagerV1, _, _>(name, version, qh, ()));
+            } else if interface == ZxdgOutputManagerV1::interface().name {
+                state.xdg_output_manager =
+                    Some(registry.bind::<ZxdgOutputManagerV1, _, _>(name, version, qh, ()));
             }
         }
     }
@@ -140,22 +174,45 @@ impl Dispatch<WlOutput, ()> for AppData {
             wl_output::Event::Mode { width, height, .. } => {
                 state.display_size.push((width, height));
             }
+            wl_output::Event::Scale { factor } => {
+                state.display_scale.push(factor);
+            }
             _ => {}
         }
     }
 }
-//impl Dispatch<ZxdgOutputV1, ()> for AppData {
-//    fn event(
-//            state: &mut Self,
-//            proxy: &ZxdgOutputV1,
-//            event: <ZxdgOutputV1 as Proxy>::Event,
-//            data: &(),
-//            conn: &Connection,
-//            qhandle: &QueueHandle<Self>,
-//        ) {
-//        println!("ss");
-//    }
-//}
+impl Dispatch<ZxdgOutputV1, ()> for AppData {
+    fn event(
+        state: &mut Self,
+        _proxy: &ZxdgOutputV1,
+        event: <ZxdgOutputV1 as Proxy>::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qhandle: &QueueHandle<Self>,
+    ) {
+        match event {
+            zxdg_output_v1::Event::LogicalPosition { x, y } => {
+                state.display_postion.push((x, y));
+            }
+            zxdg_output_v1::Event::LogicalSize { width, height } => {
+                state.display_logic_size.push((width, height));
+            }
+            _ => {}
+        }
+    }
+}
+
+impl Dispatch<ZxdgOutputManagerV1, ()> for AppData {
+    fn event(
+        _state: &mut Self,
+        _proxy: &ZxdgOutputManagerV1,
+        _event: <ZxdgOutputManagerV1 as Proxy>::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qhandle: &QueueHandle<Self>,
+    ) {
+    }
+}
 
 impl Dispatch<WlShm, ()> for AppData {
     fn event(
@@ -180,8 +237,6 @@ impl Dispatch<ZwlrScreencopyManagerV1, ()> for AppData {
     ) {
     }
 }
-
-
 
 enum ClapOption {
     ShowInfo,
@@ -336,6 +391,11 @@ fn take_screenshot(option: ClapOption) {
                 }
             },
             ClapOption::ShowInfo => {
+                let xdg_output_manager = state.xdg_output_manager.clone().unwrap();
+                for i in 0..state.displays.len() {
+                    xdg_output_manager.get_xdg_output(&state.displays[i], &qh, ());
+                    event_queue.roundtrip(&mut state).unwrap();
+                }
                 state.print_display_info();
             }
             ClapOption::ShotWithSlurp {
@@ -344,20 +404,32 @@ fn take_screenshot(option: ClapOption) {
                 width,
                 height,
             } => {
-                let manager = state.wlr_screencopy.unwrap();
-                let shm = state.shm.unwrap();
-                // TODO: need zwlr_output to get position
-                let bufferdata = wlrbackend::capture_output_frame(
-                    &conn,
-                    &state.displays[0],
-                    manager,
-                    &display,
-                    shm,
-                    Some((pos_x, pos_y, width, height)),
-                );
-                match bufferdata {
-                    Some(data) => filewriter::write_to_file(data),
-                    None => tracing::error!("Nothing get, check the log"),
+                let xdg_output_manager = state.xdg_output_manager.clone().unwrap();
+                for i in 0..state.displays.len() {
+                    xdg_output_manager.get_xdg_output(&state.displays[i], &qh, ());
+                    event_queue.roundtrip(&mut state).unwrap();
+                }
+                match state.get_pos_display_id((pos_x, pos_y)) {
+                    Some(id) => {
+                        let (pos_x, pos_y) = state.get_real_pos((pos_x, pos_y), id);
+                        let manager = state.wlr_screencopy.unwrap();
+                        let shm = state.shm.unwrap();
+                        let bufferdata = wlrbackend::capture_output_frame(
+                            &conn,
+                            &state.displays[id],
+                            manager,
+                            &display,
+                            shm,
+                            Some((pos_x, pos_y, width, height)),
+                        );
+                        match bufferdata {
+                            Some(data) => filewriter::write_to_file(data),
+                            None => tracing::error!("Nothing get, check the log"),
+                        }
+                    }
+                    None => {
+                        tracing::error!("Pos is over the screen");
+                    }
                 }
             }
         }

@@ -221,7 +221,7 @@ impl Dispatch<ZwlrScreencopyFrameV1, ()> for BufferData {
                         shm_pool.create_buffer(0, width as i32, height as i32, stride as i32, format, qh, ());
                     proxy.copy(&buffer);
 
-                    // TODO:maybe need some ajust
+                    // TODO:maybe need some adjust
                     state.frame_mmap = Some(unsafe {
                         MmapMut::map_mut(&mem_file)?
                     });
