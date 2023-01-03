@@ -1,6 +1,8 @@
 # haruhishot
 
-## thanks to wayshot
+![haruhis](./images/haruhi.jpg)
+
+## Thanks to wayshot
 
 ## Use example
 
@@ -13,7 +15,7 @@ haruhishot | wl-copy
 or
 
 ```
-haruhishot >> suzumiya.png
+haruhishot > suzumiya.png
 ```
 
 Pick with Region
@@ -39,6 +41,22 @@ or
 haruhishot --list
 ```
 
-## Thanks to the help of developers in Simthay
+Shot one screen
 
-![haruhis](./images/haruhi.jpg)
+```
+haruhishot -O DP-2 --stdout > test.png
+```
+
+or
+
+```
+haruhishot --output DP-2 --stdout > test.png
+```
+
+## TODO
+
+* I want to add a slint fontend
+* Real Fullscreen shot
+* In the code of wayshot, it seems need to make change if meet some format, but it works well on my computer, so..
+
+## Thanks to the help of developers in Simthay
