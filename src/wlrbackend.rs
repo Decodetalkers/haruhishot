@@ -243,7 +243,9 @@ impl Dispatch<ZwlrScreencopyFrameV1, ()> for BufferData {
             } => {
                 tracing::info!("Receive Damage event");
             }
-            zwlr_screencopy_frame_v1::Event::BufferDone => {}
+            zwlr_screencopy_frame_v1::Event::BufferDone => {
+                tracing::info!("Receive BufferDone event");
+            }
             zwlr_screencopy_frame_v1::Event::Flags { .. } => {
                 tracing::info!("Receive Flags event");
             }
