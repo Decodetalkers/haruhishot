@@ -1,11 +1,9 @@
-use wayland_client::protocol::__interfaces::WL_OUTPUT_INTERFACE;
-use wayland_client::protocol::__interfaces::WL_SHM_INTERFACE;
 use wayland_client::protocol::wl_output::WlOutput;
 use wayland_client::protocol::wl_shm::WlShm;
+use wayland_client::Proxy;
 use wayland_client::{protocol::wl_registry, Connection, Dispatch, QueueHandle};
 
 // wlr
-use wayland_protocols_wlr::screencopy::v1::client::__interfaces::ZWLR_SCREENCOPY_MANAGER_V1_INTERFACE;
 use wayland_protocols_wlr::screencopy::v1::client::zwlr_screencopy_manager_v1::ZwlrScreencopyManagerV1;
 
 mod filewriter;
@@ -73,13 +71,13 @@ impl Dispatch<wl_registry::WlRegistry, ()> for AppData {
             version,
         } = event
         {
-            if interface == WL_OUTPUT_INTERFACE.name {
+            if interface == WlOutput::interface().name {
                 state
                     .displays
                     .push(registry.bind::<WlOutput, _, _>(name, version, qh, ()));
-            } else if interface == WL_SHM_INTERFACE.name {
+            } else if interface == WlShm::interface().name {
                 state.shm = Some(registry.bind::<WlShm, _, _>(name, version, qh, ()));
-            } else if interface == ZWLR_SCREENCOPY_MANAGER_V1_INTERFACE.name {
+            } else if interface == ZwlrScreencopyManagerV1::interface().name {
                 state.wlr_screencopy =
                     Some(registry.bind::<ZwlrScreencopyManagerV1, _, _>(name, version, qh, ()));
             }
@@ -162,13 +160,8 @@ fn take_screenshot() {
         let manager = state.wlr_screencopy.unwrap();
         let shm = state.shm.unwrap();
         //
-        let bufferdata = wlrbackend::capture_output_frame(
-            &conn,
-            &state.displays[0],
-            manager,
-            &display,
-            shm,
-        );
+        let bufferdata =
+            wlrbackend::capture_output_frame(&conn, &state.displays[0], manager, &display, shm);
         match bufferdata {
             Some(data) => filewriter::write_to_file(data),
             None => tracing::error!("Nothing get, check the log"),
