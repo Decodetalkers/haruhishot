@@ -26,10 +26,14 @@ image = { version = "0.24", default-features = false, features = [
 
 nix = "0.26.0"
 memmap2 = "0.5.8"
-slint = "0.3.2"
+
+# in the feature
+#slint = "0.3.2"
+
 tracing-subscriber = "0.3.16"
 tracing = "0.1.37"
 clap = "4.0.32"
 
-[build-dependencies]
-slint-build = "0.3.2"
+# impl it in the feature
+#[build-dependencies]
+#slint-build = "0.3.2"
