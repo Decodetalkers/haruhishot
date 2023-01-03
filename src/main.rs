@@ -6,6 +6,13 @@ use wayland_client::{protocol::wl_registry, Connection, Dispatch, QueueHandle};
 // wlr
 use wayland_protocols_wlr::screencopy::v1::client::zwlr_screencopy_manager_v1::ZwlrScreencopyManagerV1;
 
+// clap
+
+use clap::{arg, Command};
+
+// zip
+use std::iter::zip;
+
 mod filewriter;
 mod wlrbackend;
 // This struct represents the state of our app. This simple app does not
@@ -31,7 +38,7 @@ impl AppData {
         }
     }
 
-    fn have_got_alldata(&self) -> bool {
+    fn is_ready(&self) -> bool {
         if self.displays.is_empty() {
             tracing::warn!("Cannot find any displays");
             return false;
@@ -46,6 +53,27 @@ impl AppData {
         }
 
         true
+    }
+
+    fn get_select_id(&self, screen: String) -> Option<usize> {
+        for (i, dispay_screen) in self.display_names.iter().enumerate() {
+            if dispay_screen == &screen {
+                return Some(i);
+            }
+        }
+        None
+    }
+
+    fn print_display_info(&self) {
+        for ((displayname, display_description), (x, y)) in zip(
+            zip(&self.display_names, &self.display_description),
+            &self.display_size,
+        ) {
+            println!(
+                "{}, {}, size: ({},{}) ",
+                displayname, display_description, x, y
+            );
+        }
     }
 }
 
@@ -87,7 +115,6 @@ impl Dispatch<wl_registry::WlRegistry, ()> for AppData {
                 state.wlr_screencopy =
                     Some(registry.bind::<ZwlrScreencopyManagerV1, _, _>(name, version, qh, ()));
             }
-            //println!("[{}] {} (v{})", name, interface, version);
         }
     }
 }
@@ -140,13 +167,51 @@ impl Dispatch<ZwlrScreencopyManagerV1, ()> for AppData {
     }
 }
 
+enum ClapOption {
+    ShowInfo,
+    ShotWithDefaultOption,
+    ShotWithCoosedScreen { screen: String },
+}
+
 // The main function of our program
 fn main() {
     tracing_subscriber::fmt::init();
-    take_screenshot();
+
+    const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+    let matches = Command::new("haruhishot")
+        .about("Haruhi Suzumiya has made a wlr screenshot tool")
+        .version(VERSION)
+        .author("Haruhi Suzumiya")
+        .subcommand(
+            Command::new("output")
+                .long_flag("output")
+                .short_flag('O')
+                .arg(arg!(<Screen> ... "Screen"))
+                .about("Choose Output"),
+        )
+        .subcommand(
+            Command::new("list_outputs")
+                .long_flag("list_outputs")
+                .short_flag('L')
+                .about("list all outputs"),
+        )
+        .get_matches();
+    match matches.subcommand() {
+        Some(("output", submatchs)) => {
+            let screen = submatchs
+                .get_one::<String>("Screen")
+                .expect("need one screen input")
+                .to_string();
+            take_screenshot(ClapOption::ShotWithCoosedScreen { screen });
+        }
+        Some(("list_outputs", _)) => take_screenshot(ClapOption::ShowInfo),
+        _ => take_screenshot(ClapOption::ShotWithDefaultOption),
+    }
+    //take_screenshot();
 }
 
-fn take_screenshot() {
+fn take_screenshot(option: ClapOption) {
     // Create a Wayland connection by connecting to the server through the
     // environment-provided configuration.
     let conn = Connection::connect_to_env().unwrap();
@@ -176,16 +241,49 @@ fn take_screenshot() {
 
     // get output info
     event_queue.roundtrip(&mut state).unwrap();
-    if state.have_got_alldata() {
+    if state.is_ready() {
         tracing::info!("All data is ready");
-        let manager = state.wlr_screencopy.unwrap();
-        let shm = state.shm.unwrap();
+
         //
-        let bufferdata =
-            wlrbackend::capture_output_frame(&conn, &state.displays[0], manager, &display, shm);
-        match bufferdata {
-            Some(data) => filewriter::write_to_file(data),
-            None => tracing::error!("Nothing get, check the log"),
+        match option {
+            ClapOption::ShotWithDefaultOption => {
+                let manager = state.wlr_screencopy.unwrap();
+                let shm = state.shm.unwrap();
+                let bufferdata = wlrbackend::capture_output_frame(
+                    &conn,
+                    &state.displays[0],
+                    manager,
+                    &display,
+                    shm,
+                );
+                match bufferdata {
+                    Some(data) => filewriter::write_to_file(data),
+                    None => tracing::error!("Nothing get, check the log"),
+                }
+            }
+            ClapOption::ShotWithCoosedScreen { screen } => match state.get_select_id(screen) {
+                Some(id) => {
+                    let manager = state.wlr_screencopy.unwrap();
+                    let shm = state.shm.unwrap();
+                    let bufferdata = wlrbackend::capture_output_frame(
+                        &conn,
+                        &state.displays[id],
+                        manager,
+                        &display,
+                        shm,
+                    );
+                    match bufferdata {
+                        Some(data) => filewriter::write_to_file(data),
+                        None => tracing::error!("Nothing get, check the log"),
+                    }
+                }
+                None => {
+                    tracing::error!("Cannot find screen");
+                }
+            },
+            ClapOption::ShowInfo => {
+                state.print_display_info();
+            }
         }
     }
 }

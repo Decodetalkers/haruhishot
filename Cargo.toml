@@ -1,5 +1,5 @@
 [package]
-name = "greateshot"
+name = "haruhishot"
 version = "0.2.0"
 edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -29,6 +29,7 @@ memmap2 = "0.5.8"
 slint = "0.3.2"
 tracing-subscriber = "0.3.16"
 tracing = "0.1.37"
+clap = "4.0.32"
 
 [build-dependencies]
 slint-build = "0.3.2"
