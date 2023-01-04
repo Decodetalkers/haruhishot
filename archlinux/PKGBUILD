@@ -1,5 +1,5 @@
 pkgname=haruhishot
-pkgver=0.2.2
+pkgver=0.2.3
 pkgrel=1.0
 pkgdesc='One day Haruhi Suzumiya made a wlr screenshot tool'
 arch=('x86_64' 'aarch64')

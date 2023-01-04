@@ -1,5 +1,5 @@
 project('haruhishot', 'rust',
-  version: '0.2.2',
+  version: '0.2.3',
   meson_version: '>= 0.60'
 )
 
@@ -28,14 +28,16 @@ else
   if get_option('enable-notify')
     command = [
       cargo, 'build', '--features=notify',
+      '--release',
       '&&',
-      'cp', meson.global_source_root() / 'target' / 'debug' / meson.project_name(), '@OUTPUT@'
+      'cp', meson.global_source_root() / 'target' / 'release' / meson.project_name(), '@OUTPUT@'
     ]
   else
     command = [
       cargo, 'build',
+      '--release',
       '&&',
-      'cp', meson.global_source_root() / 'target' / 'debug' / meson.project_name(), '@OUTPUT@'
+      'cp', meson.global_source_root() / 'target' / 'release' / meson.project_name(), '@OUTPUT@'
     ]
   endif
 endif
