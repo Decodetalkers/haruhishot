@@ -260,7 +260,6 @@ enum ClapOption {
 
 // The main function of our program
 fn main() {
-
     const VERSION: &str = env!("CARGO_PKG_VERSION");
 
     let matches = Command::new("haruhishot")
@@ -318,14 +317,30 @@ fn main() {
                 .expect("Need message")
                 .to_string();
             let posmessage: Vec<&str> = posmessage.trim().split(' ').collect();
+            if posmessage.len() != 2 {
+                eprintln!("Error input");
+                return;
+            }
             let position: Vec<&str> = posmessage[0].split(',').collect();
 
-            let pos_x = position[0].parse::<i32>().unwrap();
-            let pos_y = position[1].parse::<i32>().unwrap();
+            let pos_x = position[0]
+                .parse::<i32>()
+                .unwrap_or_else(|_| panic!("Error parse"));
+            let pos_y = position[1]
+                .parse::<i32>()
+                .unwrap_or_else(|_| panic!("Error parse"));
 
             let map: Vec<&str> = posmessage[1].split('x').collect();
-            let width = map[0].parse::<i32>().unwrap();
-            let height = map[1].parse::<i32>().unwrap();
+            if map.len() != 2 {
+                eprintln!("Error input");
+                return;
+            }
+            let width = map[0]
+                .parse::<i32>()
+                .unwrap_or_else(|_| panic!("Error parse"));
+            let height = map[1]
+                .parse::<i32>()
+                .unwrap_or_else(|_| panic!("Error parse"));
             let usestdout = submatchs.get_flag("stdout");
             if !usestdout {
                 tracing_subscriber::fmt::init();
