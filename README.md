@@ -9,16 +9,16 @@
 
 ## Use example
 
-Fullscreen (No, just the first screen, just because I am not familar with image.rs)
+Fullscreen ~~(No, just the first screen, just because I am not familar with image.rs)~~ Finished fullscreen, just compile two images together
 
 ```
-haruhishot | wl-copy
+haruhishot -G --stdout | wl-copy
 ```
 
 or
 
 ```
-haruhishot > suzumiya.png
+haruhishot --global --stdout > suzumiya.png
 ```
 
 Pick with Region
@@ -55,11 +55,10 @@ or
 ```
 haruhishot --output DP-2 --stdout > test.png
 ```
-
 ## TODO
 
 * I want to add a slint fontend
-* Real Fullscreen shot
+* ~~Real Fullscreen shot~~
 * In the code of wayshot, it seems need to make change if meet some format, but it works well on my computer, so..
 
 ## Thanks to the help of developers in Simthay

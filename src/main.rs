@@ -244,7 +244,9 @@ impl Dispatch<ZwlrScreencopyManagerV1, ()> for AppData {
 
 enum ClapOption {
     ShowInfo,
-    ShotWithDefaultOption,
+    ShotWithFullScreen {
+        usestdout: bool,
+    },
     ShotWithCoosedScreen {
         screen: String,
         usestdout: bool,
@@ -265,6 +267,8 @@ fn main() {
     let matches = Command::new("haruhishot")
         .about("One day Haruhi Suzumiya made a wlr screenshot tool")
         .version(VERSION)
+        .subcommand_required(true)
+        .arg_required_else_help(true)
         .author("Haruhi Suzumiya")
         .subcommand(
             Command::new("output")
@@ -291,6 +295,18 @@ fn main() {
                         .help("to stdout"),
                 )
                 .about("Slurp"),
+        )
+        .subcommand(
+            Command::new("global")
+                .long_flag("global")
+                .short_flag('G')
+                .arg(
+                    Arg::new("stdout")
+                        .long("stdout")
+                        .action(ArgAction::SetTrue)
+                        .help("to stdout"),
+                )
+                .about("TakeScreenshot about whole screen"),
         )
         .subcommand(
             Command::new("list_outputs")
@@ -367,7 +383,14 @@ fn main() {
             });
         }
         Some(("list_outputs", _)) => take_screenshot(ClapOption::ShowInfo),
-        _ => take_screenshot(ClapOption::ShotWithDefaultOption),
+        Some(("global", submatchs)) => {
+            let usestdout = submatchs.get_flag("stdout");
+            if !usestdout {
+                tracing_subscriber::fmt::init();
+            }
+            take_screenshot(ClapOption::ShotWithFullScreen { usestdout });
+        }
+        _ => unimplemented!(),
     }
     //take_screenshot();
 }
@@ -407,21 +430,29 @@ fn take_screenshot(option: ClapOption) {
 
         //
         match option {
-            ClapOption::ShotWithDefaultOption => {
+            ClapOption::ShotWithFullScreen { usestdout } => {
                 let manager = state.wlr_screencopy.unwrap();
                 let shm = state.shm.unwrap();
-                let bufferdata = wlrbackend::capture_output_frame(
+                let mut bufferdatas = Vec::new();
+                for (index, wldisplay) in state.displays.iter().enumerate() {
+                    let Some(bufferdata) = wlrbackend::capture_output_frame(
                     &conn,
-                    &state.displays[0],
-                    manager,
+                    wldisplay,
+                    manager.clone(),
                     &display,
-                    shm,
+                    shm.clone(),
                     None,
-                );
-                match bufferdata {
-                    Some(data) => filewriter::write_to_file(data, true),
-                    None => tracing::error!("Nothing get, check the log"),
+                ) else {
+                    if usestdout {
+                        tracing_subscriber::fmt().init();
+
+                    }
+                    tracing::error!("Cannot get frame from screen: {} ",  state.display_names[index]);
+                    return;
+                };
+                    bufferdatas.push(bufferdata);
                 }
+                filewriter::write_to_file_fullscreen(bufferdatas, usestdout);
             }
             ClapOption::ShotWithCoosedScreen { screen, usestdout } => {
                 match state.get_select_id(screen) {
