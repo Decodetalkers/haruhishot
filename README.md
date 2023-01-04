@@ -1,6 +1,9 @@
 # haruhishot
 
 ![haruhis](./images/haruhi.jpg)
+## Installation
+
+[![Packaging status](https://repology.org/badge/vertical-allrepos/haruhishot.svg)](https://repology.org/project/haruhishot/versions)
 
 ## Thanks to wayshot
 
