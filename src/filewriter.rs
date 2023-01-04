@@ -2,6 +2,8 @@ use image::{codecs::png::PngEncoder, ImageEncoder};
 use image::{GenericImage, GenericImageView, ImageBuffer, Pixel, Primitive};
 
 use crate::wlrbackend::BufferData;
+use crate::constenv::SAVEPATH;
+
 use std::io::Write;
 use std::io::{stdout, BufWriter, Cursor};
 use std::time;
@@ -27,6 +29,7 @@ pub fn write_to_file(bufferdata: BufferData, usestdout: bool) {
                 .unwrap()
                 .as_secs()
         );
+        let file = SAVEPATH.join(file);
         let mut writer = std::fs::File::create(file).unwrap();
         //let frame_mmap = &mut bufferdata.frame_mmap.unwrap();
         PngEncoder::new(&mut writer)
@@ -73,6 +76,7 @@ pub fn write_to_file_fullscreen(bufferdatas: Vec<BufferData>, usestdout: bool) {
                 .unwrap()
                 .as_secs()
         );
+        let file = SAVEPATH.join(file);
         h_concat(&images).save(file).unwrap();
     }
 }

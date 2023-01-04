@@ -135,6 +135,7 @@ dependencies = [
  "image",
  "memmap2",
  "nix",
+ "once_cell",
  "tracing",
  "tracing-subscriber",
  "wayland-client",

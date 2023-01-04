@@ -18,6 +18,7 @@ use std::iter::zip;
 
 mod filewriter;
 mod wlrbackend;
+mod constenv;
 // This struct represents the state of our app. This simple app does not
 // need any state, by this type still supports the `Dispatch` implementations.
 struct AppData {
