@@ -29,7 +29,7 @@ endif
 prefix = get_option('prefix')
 bindir = prefix / get_option('bindir')
 
-gdgbattersaver_target = custom_target(meson.project_name(),
+haruhishot_target = custom_target(meson.project_name(),
   output: meson.project_name(),
   build_by_default: true,
   install: true,
