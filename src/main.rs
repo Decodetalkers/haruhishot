@@ -318,29 +318,42 @@ fn main() {
                 .to_string();
             let posmessage: Vec<&str> = posmessage.trim().split(' ').collect();
             if posmessage.len() != 2 {
-                eprintln!("Error input");
+                tracing_subscriber::fmt::init();
+                tracing::error!("Error input");
                 return;
             }
             let position: Vec<&str> = posmessage[0].split(',').collect();
 
-            let pos_x = position[0]
-                .parse::<i32>()
-                .unwrap_or_else(|_| panic!("Error parse"));
-            let pos_y = position[1]
-                .parse::<i32>()
-                .unwrap_or_else(|_| panic!("Error parse"));
+            let Ok(pos_x) = position[0]
+                .parse::<i32>() else {
+                    tracing_subscriber::fmt::init();
+                    tracing::error!("Error parse, Cannot get pos_x");
+                    return;
+                };
+            let Ok(pos_y) = position[1]
+                .parse::<i32>() else {
+                    tracing_subscriber::fmt::init();
+                    tracing::error!("Error parse, Cannot get pos_y");
+                    return;
+                };
 
             let map: Vec<&str> = posmessage[1].split('x').collect();
             if map.len() != 2 {
                 eprintln!("Error input");
                 return;
             }
-            let width = map[0]
-                .parse::<i32>()
-                .unwrap_or_else(|_| panic!("Error parse"));
-            let height = map[1]
-                .parse::<i32>()
-                .unwrap_or_else(|_| panic!("Error parse"));
+            let Ok(width) = map[0]
+                .parse::<i32>() else {
+                    tracing_subscriber::fmt::init();
+                    tracing::error!("Error parse, cannot get width");
+                    return;
+            };
+            let Ok(height) = map[1]
+                .parse::<i32>() else {
+                    tracing_subscriber::fmt::init();
+                    tracing::error!("Error parse, cannot get height");
+                    return;
+            };
             let usestdout = submatchs.get_flag("stdout");
             if !usestdout {
                 tracing_subscriber::fmt::init();
