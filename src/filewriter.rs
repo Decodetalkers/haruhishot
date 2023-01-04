@@ -1,12 +1,19 @@
 use image::{codecs::png::PngEncoder, ImageEncoder};
 use image::{GenericImage, GenericImageView, ImageBuffer, Pixel, Primitive};
+#[cfg(feature = "notify")]
+use notify_rust::Notification;
 
-use crate::wlrbackend::BufferData;
 use crate::constenv::SAVEPATH;
+#[cfg(feature = "notify")]
+use crate::constenv::{FAILED_IMAGE, SUCCESSED_IMAGE};
+use crate::wlrbackend::BufferData;
 
 use std::io::Write;
 use std::io::{stdout, BufWriter, Cursor};
 use std::time;
+
+#[cfg(feature = "notify")]
+const TIMEOUT: i32 = 10000;
 
 //use std::io::{stdout, BufWriter};
 pub fn write_to_file(bufferdata: BufferData, usestdout: bool) {
@@ -30,16 +37,36 @@ pub fn write_to_file(bufferdata: BufferData, usestdout: bool) {
                 .as_secs()
         );
         let file = SAVEPATH.join(file);
-        let mut writer = std::fs::File::create(file).unwrap();
+        let filename = file.to_str().unwrap();
+        let mut writer = std::fs::File::create(&file).unwrap();
         //let frame_mmap = &mut bufferdata.frame_mmap.unwrap();
-        PngEncoder::new(&mut writer)
+        if PngEncoder::new(&mut writer)
             .write_image(
                 &bufferdata.frame_mmap.unwrap(),
                 bufferdata.width,
                 bufferdata.height,
                 image::ColorType::Rgba8,
             )
-            .unwrap()
+            .is_ok()
+        {
+            tracing::info!("Image saved to {}", filename);
+            #[cfg(feature = "notify")]
+            let _ = Notification::new()
+                .summary("FileSaved")
+                .body(&format!("File saved to {}", filename))
+                .icon(SUCCESSED_IMAGE)
+                .timeout(TIMEOUT)
+                .show();
+        } else {
+            tracing::error!("Image failed saved to {}", filename);
+            #[cfg(feature = "notify")]
+            let _ = Notification::new()
+                .summary("FileSavedFailed")
+                .body(&format!("File failed saved to {}", filename))
+                .icon(FAILED_IMAGE)
+                .timeout(TIMEOUT)
+                .show();
+        }
     }
 }
 
@@ -67,7 +94,7 @@ pub fn write_to_file_fullscreen(bufferdatas: Vec<BufferData>, usestdout: bool) {
         let content = buff.get_ref();
         let stdout = stdout();
         let mut writer = BufWriter::new(stdout.lock());
-        writer.write(content).unwrap();
+        writer.write_all(content).unwrap();
     } else {
         let file = format!(
             "{}-haruhui.png",
@@ -77,7 +104,26 @@ pub fn write_to_file_fullscreen(bufferdatas: Vec<BufferData>, usestdout: bool) {
                 .as_secs()
         );
         let file = SAVEPATH.join(file);
-        h_concat(&images).save(file).unwrap();
+        let filename = file.to_str().unwrap();
+        if h_concat(&images).save(&file).is_ok() {
+            tracing::info!("Image saved to {}", filename);
+            #[cfg(feature = "notify")]
+            let _ = Notification::new()
+                .summary("FileSaved")
+                .body(&format!("File saved to {}", filename))
+                .icon(SUCCESSED_IMAGE)
+                .timeout(TIMEOUT)
+                .show();
+        } else {
+            tracing::error!("Image failed saved to {}", filename);
+            #[cfg(feature = "notify")]
+            let _ = Notification::new()
+                .summary("FileSavedFailed")
+                .body(&format!("File failed saved to {}", filename))
+                .icon(FAILED_IMAGE)
+                .timeout(TIMEOUT)
+                .show();
+        };
     }
 }
 fn h_concat<I, P, S>(images: &[I]) -> ImageBuffer<P, Vec<S>>

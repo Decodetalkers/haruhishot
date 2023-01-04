@@ -9,10 +9,13 @@ pub static SAVEPATH: Lazy<PathBuf> = Lazy::new(|| {
         return PathBuf::from(TMP);
     };
     let targetpath = PathBuf::from(home).join("Pictures").join("haruhishot");
-    if !targetpath.exists() {
-        if fs::create_dir_all(&targetpath).is_err() {
-            return PathBuf::from(TMP);
-        }
+    if !targetpath.exists() && fs::create_dir_all(&targetpath).is_err() {
+        return PathBuf::from(TMP);
     }
     targetpath
 });
+
+#[cfg(feature = "notify")]
+pub const SUCCESSED_IMAGE: &str = "haruhi_successed";
+#[cfg(feature = "notify")]
+pub const FAILED_IMAGE: &str = "haruhi_failed";

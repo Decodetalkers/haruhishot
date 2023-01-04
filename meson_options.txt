@@ -1,0 +1,1 @@
+option('enable-notify', type: 'boolean', value: false, description: 'Enable notify feature')
