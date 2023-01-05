@@ -269,7 +269,6 @@ pub fn capture_output_frame(
 ) -> Option<BufferData> {
     let mut event_queue = connection.new_event_queue();
     let qh = event_queue.handle();
-
     display.get_registry(&qh, ());
     let mut framesate = BufferData::new(shm);
     match slurpoption {

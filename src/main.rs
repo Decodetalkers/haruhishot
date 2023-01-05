@@ -108,7 +108,7 @@ impl AppData {
             let top_right_in_region =
                 end_x >= *x && end_x <= *x + *width && start_y >= *y && start_y <= *y + height;
             let bottom_right_in_region =
-                end_x >= *x && end_y <= *y + *width && end_y >= *y && end_y <= *y + height;
+                end_x >= *x && end_x <= *x + *width && end_y >= *y && end_y <= *y + height;
 
             // on line through it;
             let left_line_through =
@@ -168,8 +168,7 @@ impl AppData {
 
         let pos_end_x = std::cmp::min(end_x, right_bottom_x);
         let pos_end_y = std::cmp::min(end_y, right_bottom_y);
-
-        (pos_x, pos_y, pos_end_x - pos_x, pos_end_y - pos_y)
+        (pos_x, pos_y, pos_end_x - x, pos_end_y - y)
     }
     fn print_display_info(&self) {
         for (scale, ((displayname, display_description), ((logic_x, logic_y), (x, y)))) in zip(
