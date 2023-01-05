@@ -121,7 +121,7 @@ impl AppData {
                 start_x <= *x && end_x >= *x + width && end_y >= *y && end_y <= *y + *height;
 
             // surround
-            let surround = !(start_x > *x
+            let around = !(start_x > *x
                 || start_y > *y
                 || end_x > *x
                 || end_y < *y + *height
@@ -135,7 +135,7 @@ impl AppData {
                     || right_line_through
                     || top_line_through
                     || bottom_line_though)
-                || surround
+                || around
             {
                 ids.push(i);
             }
