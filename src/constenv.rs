@@ -19,3 +19,5 @@ pub static SAVEPATH: Lazy<PathBuf> = Lazy::new(|| {
 pub const SUCCESSED_IMAGE: &str = "haruhi_successed";
 #[cfg(feature = "notify")]
 pub const FAILED_IMAGE: &str = "haruhi_failed";
+#[cfg(feature = "notify")]
+pub const TIMEOUT: i32 = 10000;

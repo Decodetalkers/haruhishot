@@ -16,9 +16,9 @@ use clap::{arg, Arg, ArgAction, Command};
 // zip
 use std::iter::zip;
 
+mod constenv;
 mod filewriter;
 mod wlrbackend;
-mod constenv;
 // This struct represents the state of our app. This simple app does not
 // need any state, by this type still supports the `Dispatch` implementations.
 struct AppData {
@@ -334,9 +334,23 @@ fn main() {
                 .expect("Need message")
                 .to_string();
             let posmessage: Vec<&str> = posmessage.trim().split(' ').collect();
+            #[cfg(feature = "notify")]
+            let notify_error = |message: &str| {
+                use crate::constenv::{FAILED_IMAGE, TIMEOUT};
+                use notify_rust::Notification;
+                #[cfg(feature = "notify")]
+                let _ = Notification::new()
+                    .summary("FileSavedFailed")
+                    .body(message)
+                    .icon(FAILED_IMAGE)
+                    .timeout(TIMEOUT)
+                    .show();
+            };
             if posmessage.len() != 2 {
                 tracing_subscriber::fmt::init();
                 tracing::error!("Error input");
+                #[cfg(feature = "notify")]
+                notify_error("Get error input, Maybe canceled?");
                 return;
             }
             let position: Vec<&str> = posmessage[0].split(',').collect();
@@ -345,12 +359,16 @@ fn main() {
                 .parse::<i32>() else {
                     tracing_subscriber::fmt::init();
                     tracing::error!("Error parse, Cannot get pos_x");
+                    #[cfg(feature = "notify")]
+                    notify_error("Error parse, Cannot get pos_x");
                     return;
                 };
             let Ok(pos_y) = position[1]
                 .parse::<i32>() else {
                     tracing_subscriber::fmt::init();
                     tracing::error!("Error parse, Cannot get pos_y");
+                    #[cfg(feature = "notify")]
+                    notify_error("Error parse, Cannot get pos_y");
                     return;
                 };
 
@@ -363,12 +381,16 @@ fn main() {
                 .parse::<i32>() else {
                     tracing_subscriber::fmt::init();
                     tracing::error!("Error parse, cannot get width");
+                    #[cfg(feature = "notify")]
+                    notify_error("Error parse, Cannot get width");
                     return;
             };
             let Ok(height) = map[1]
                 .parse::<i32>() else {
                     tracing_subscriber::fmt::init();
                     tracing::error!("Error parse, cannot get height");
+                    #[cfg(feature = "notify")]
+                    notify_error("Error parse, Cannot get height");
                     return;
             };
             let usestdout = submatchs.get_flag("stdout");
@@ -518,6 +540,18 @@ fn take_screenshot(option: ClapOption) {
                     }
                     None => {
                         tracing::error!("Pos is over the screen");
+                        #[cfg(feature = "notify")]
+                        {
+                            use crate::constenv::{FAILED_IMAGE, TIMEOUT};
+                            use notify_rust::Notification;
+                            #[cfg(feature = "notify")]
+                            let _ = Notification::new()
+                                .summary("FileSavedFailed")
+                                .body("Pos is over the screen")
+                                .icon(FAILED_IMAGE)
+                                .timeout(TIMEOUT)
+                                .show();
+                        }
                     }
                 }
             }

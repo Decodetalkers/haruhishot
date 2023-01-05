@@ -205,6 +205,7 @@ impl Dispatch<ZwlrScreencopyFrameV1, ()> for BufferData {
                         return;
                     }
                 };
+                tracing::info!("Format is {:?}", format);
                 state.width = width;
                 state.height = height;
                 //state.stride = stride;

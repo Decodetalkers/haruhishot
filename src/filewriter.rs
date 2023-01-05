@@ -5,15 +5,12 @@ use notify_rust::Notification;
 
 use crate::constenv::SAVEPATH;
 #[cfg(feature = "notify")]
-use crate::constenv::{FAILED_IMAGE, SUCCESSED_IMAGE};
+use crate::constenv::{FAILED_IMAGE, SUCCESSED_IMAGE, TIMEOUT};
 use crate::wlrbackend::BufferData;
 
 use std::io::Write;
 use std::io::{stdout, BufWriter, Cursor};
 use std::time;
-
-#[cfg(feature = "notify")]
-const TIMEOUT: i32 = 10000;
 
 //use std::io::{stdout, BufWriter};
 pub fn write_to_file(bufferdata: BufferData, usestdout: bool) {
