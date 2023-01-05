@@ -67,7 +67,7 @@ pub fn write_to_file(bufferdata: BufferData, usestdout: bool) {
     }
 }
 
-pub fn write_to_file_fullscreen(bufferdatas: Vec<BufferData>, usestdout: bool) {
+pub fn write_to_file_mutisource(bufferdatas: Vec<BufferData>, usestdout: bool) {
     let mut images = Vec::new();
     for buffer in bufferdatas {
         let mut buff = Cursor::new(Vec::new());
