@@ -80,24 +80,96 @@ impl AppData {
         None
     }
 
-    fn get_pos_display_id(&self, pos: (i32, i32)) -> Option<usize> {
-        let (pos_x, pos_y) = pos;
+    //fn get_pos_display_id(&self, pos: (i32, i32)) -> Option<usize> {
+    //    let (pos_x, pos_y) = pos;
+    //    for (i, ((width, height), (x, y))) in
+    //        zip(&self.display_logic_size, &self.display_postion).enumerate()
+    //    {
+    //        if pos_x >= *x && pos_x <= *x + *width && pos_y >= *y && pos_y <= *y + *height {
+    //            return Some(i);
+    //        }
+    //    }
+    //    None
+    //}
+
+    fn get_pos_display_ids(&self, pos: (i32, i32), size: (i32, i32)) -> Option<Vec<usize>> {
+        let (start_x, start_y) = pos;
+        let (select_width, select_height) = size;
+        let (end_x, end_y) = (start_x + select_width, start_y + select_height);
+        let mut ids = Vec::new();
         for (i, ((width, height), (x, y))) in
             zip(&self.display_logic_size, &self.display_postion).enumerate()
         {
-            if pos_x >= *x && pos_x <= *x + *width && pos_y >= *y && pos_y <= *y + *height {
-                return Some(i);
+            // at least one point in region
+            let top_left_in_region =
+                start_x >= *x && start_x <= *x + *width && start_y >= *y && start_y <= *y + *height;
+            let bottom_left_in_region =
+                start_x >= *x && start_x <= *x + *width && end_y >= *y && end_y <= *y + *height;
+            let top_right_in_region =
+                end_x >= *x && end_x <= *x + *width && start_y >= *y && start_y <= *y + height;
+            let bottom_right_in_region =
+                end_x >= *x && end_y <= *y + *width && end_y >= *y && end_y <= *y + height;
+
+            // on line through it;
+            let left_line_through =
+                start_x >= *x && start_x <= *x + width && start_y <= *y && end_y >= *y + *height;
+            let right_line_through =
+                end_x >= *x && end_x <= *x + width && start_y <= *y && end_y >= *y + *height;
+            let top_line_through =
+                start_x <= *x && end_x >= *x + width && start_y >= *y && start_y <= *y + *height;
+            let bottom_line_though =
+                start_x <= *x && end_x >= *x + width && end_y >= *y && end_y <= *y + *height;
+
+            // surround
+            let surround = !(start_x > *x
+                || start_y > *y
+                || end_x > *x
+                || end_y < *y + *height
+                || end_x < *x + *width);
+
+            if (top_left_in_region
+                || bottom_left_in_region
+                || top_right_in_region
+                || bottom_right_in_region)
+                || (left_line_through
+                    || right_line_through
+                    || top_line_through
+                    || bottom_line_though)
+                || surround
+            {
+                ids.push(i);
             }
         }
-        None
+        if ids.is_empty() {
+            None
+        } else {
+            Some(ids)
+        }
     }
 
-    fn get_real_pos(&self, pos: (i32, i32), id: usize) -> (i32, i32) {
+    fn get_real_pos(&self, pos: (i32, i32), size: (i32, i32), id: usize) -> (i32, i32, i32, i32) {
         let (x, y) = pos;
-        (
-            x - self.display_postion[id].0,
-            y - self.display_postion[id].1,
-        )
+        let (width, height) = size;
+        let (end_x, end_y) = (x + width, y + height);
+        let (right_bottom_x, right_bottom_y) = (
+            self.display_postion[id].0 + self.display_logic_size[id].0,
+            self.display_postion[id].1 + self.display_logic_size[id].1,
+        );
+        let pos_x = if x - self.display_postion[id].0 >= 0 {
+            x - self.display_postion[id].0
+        } else {
+            0
+        };
+        let pos_y = if y - self.display_postion[id].1 >= 0 {
+            y - self.display_postion[id].1
+        } else {
+            0
+        };
+
+        let pos_end_x = std::cmp::min(end_x, right_bottom_x);
+        let pos_end_y = std::cmp::min(end_y, right_bottom_y);
+
+        (pos_x, pos_y, pos_end_x - pos_x, pos_end_y - pos_y)
     }
     fn print_display_info(&self) {
         for (scale, ((displayname, display_description), ((logic_x, logic_y), (x, y)))) in zip(
@@ -459,23 +531,33 @@ fn take_screenshot(option: ClapOption) {
                 let mut bufferdatas = Vec::new();
                 for (index, wldisplay) in state.displays.iter().enumerate() {
                     let Some(bufferdata) = wlrbackend::capture_output_frame(
-                    &conn,
-                    wldisplay,
-                    manager.clone(),
-                    &display,
-                    shm.clone(),
-                    None,
-                ) else {
-                    if usestdout {
-                        tracing_subscriber::fmt().init();
-
-                    }
-                    tracing::error!("Cannot get frame from screen: {} ",  state.display_names[index]);
-                    return;
-                };
+                        &conn,
+                        wldisplay,
+                        manager.clone(),
+                        &display,
+                        shm.clone(),
+                        None,
+                    ) else {
+                        if usestdout {
+                            tracing_subscriber::fmt().init();
+                        }
+                        tracing::error!("Cannot get frame from screen: {} ",  state.display_names[index]);
+                        #[cfg(feature = "notify")]
+                        {
+                            use crate::constenv::{FAILED_IMAGE, TIMEOUT};
+                            use notify_rust::Notification;
+                            let _ = Notification::new()
+                                .summary("FileSavedFailed")
+                                .body(&format!("Cannot get frame from screen: {}", state.display_names[index]))
+                                .icon(FAILED_IMAGE)
+                                .timeout(TIMEOUT)
+                                .show();
+                        }
+                        return;
+                    };
                     bufferdatas.push(bufferdata);
                 }
-                filewriter::write_to_file_fullscreen(bufferdatas, usestdout);
+                filewriter::write_to_file_mutisource(bufferdatas, usestdout);
             }
             ClapOption::ShotWithCoosedScreen { screen, usestdout } => {
                 match state.get_select_id(screen) {
@@ -520,23 +602,43 @@ fn take_screenshot(option: ClapOption) {
                     xdg_output_manager.get_xdg_output(&state.displays[i], &qh, ());
                     event_queue.roundtrip(&mut state).unwrap();
                 }
-                match state.get_pos_display_id((pos_x, pos_y)) {
-                    Some(id) => {
-                        let (pos_x, pos_y) = state.get_real_pos((pos_x, pos_y), id);
-                        let manager = state.wlr_screencopy.unwrap();
-                        let shm = state.shm.unwrap();
-                        let bufferdata = wlrbackend::capture_output_frame(
-                            &conn,
-                            &state.displays[id],
-                            manager,
-                            &display,
-                            shm,
-                            Some((pos_x, pos_y, width, height)),
-                        );
-                        match bufferdata {
-                            Some(data) => filewriter::write_to_file(data, usestdout),
-                            None => tracing::error!("Nothing get, check the log"),
+                match state.get_pos_display_ids((pos_x, pos_y), (width, height)) {
+                    Some(ids) => {
+                        //let (pos_x, pos_y) = state.get_real_pos((pos_x, pos_y), id);
+                        let manager = state.wlr_screencopy.clone().unwrap();
+                        let shm = state.shm.clone().unwrap();
+                        let mut bufferdatas = Vec::new();
+                        for id in ids {
+                            let (pos_x, pos_y, width, height) =
+                                state.get_real_pos((pos_x, pos_y), (width, height), id);
+                            let Some(bufferdata) = wlrbackend::capture_output_frame(
+                                &conn,
+                                &state.displays[id],
+                                manager.clone(),
+                                &display,
+                                shm.clone(),
+                                Some((pos_x, pos_y, width,height)),
+                            ) else {
+                                if usestdout {
+                                    tracing_subscriber::fmt().init();
+                                }
+                                tracing::error!("Cannot get frame from screen: {} ",  state.display_names[id]);
+                                #[cfg(feature = "notify")]
+                                {
+                                    use crate::constenv::{FAILED_IMAGE, TIMEOUT};
+                                    use notify_rust::Notification;
+                                    let _ = Notification::new()
+                                        .summary("FileSavedFailed")
+                                        .body(&format!("Cannot get frame from screen: {}", state.display_names[id]))
+                                        .icon(FAILED_IMAGE)
+                                        .timeout(TIMEOUT)
+                                        .show();
+                                }
+                                return;
+                            };
+                            bufferdatas.push(bufferdata);
                         }
+                        filewriter::write_to_file_mutisource(bufferdatas, usestdout);
                     }
                     None => {
                         tracing::error!("Pos is over the screen");
@@ -544,7 +646,6 @@ fn take_screenshot(option: ClapOption) {
                         {
                             use crate::constenv::{FAILED_IMAGE, TIMEOUT};
                             use notify_rust::Notification;
-                            #[cfg(feature = "notify")]
                             let _ = Notification::new()
                                 .summary("FileSavedFailed")
                                 .body("Pos is over the screen")
