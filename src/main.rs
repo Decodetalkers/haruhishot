@@ -166,9 +166,11 @@ impl AppData {
             0
         };
 
+        let start_x = std::cmp::max(x, self.display_postion[id].0);
+        let start_y = std::cmp::max(y, self.display_postion[id].1);
         let pos_end_x = std::cmp::min(end_x, right_bottom_x);
         let pos_end_y = std::cmp::min(end_y, right_bottom_y);
-        (pos_x, pos_y, pos_end_x - x, pos_end_y - y)
+        (pos_x, pos_y, pos_end_x - start_x, pos_end_y - start_y)
     }
     fn print_display_info(&self) {
         for (scale, ((displayname, display_description), ((logic_x, logic_y), (x, y)))) in zip(
