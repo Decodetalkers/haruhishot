@@ -456,7 +456,7 @@ dependencies = [
 
 [[package]]
 name = "haruhishot"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "clap",
  "image",
