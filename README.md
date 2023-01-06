@@ -75,6 +75,13 @@ or
 ```
 haruhishot --output DP-2 --stdout > test.png
 ```
+
+## Features
+
+### Notify Message
+
+![notify](./images/notify.png)
+
 ## TODO
 
 * I want to add a slint fontend
