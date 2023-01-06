@@ -1,6 +1,26 @@
 # haruhishot
 
+It is a screenshot tool for wlroots based compositors such as sway and river written in Rust, with wayland-rs
+
 ![haruhis](./images/haruhi.jpg)
+
+## How to build
+
+dependiences: `wayland` , `wlroots` , `rust` and `meson`
+
+You can just run `cargo run`
+
+If you want to package it , you can use `meson.build`
+
+```bash
+  meson setup \
+    -Dprefix=/usr \
+    -Dbuildtype=release \
+    -Denable-notify=true \ # it is a feature of notify, can set it to false
+    build
+  ninja -C build
+```
+
 ## Installation
 
 [![Packaging status](https://repology.org/badge/vertical-allrepos/haruhishot.svg)](https://repology.org/project/haruhishot/versions)
