@@ -26,15 +26,15 @@ pub fn write_to_file(bufferdata: BufferData, usestdout: bool) {
             )
             .unwrap()
     } else {
-        let file = format!(
+        let file_name = format!(
             "{}-haruhui.png",
             time::SystemTime::now()
                 .duration_since(time::UNIX_EPOCH)
                 .unwrap()
                 .as_secs()
         );
-        let file = SAVEPATH.join(file);
-        let filename = file.to_str().unwrap();
+        let file = SAVEPATH.join(&file_name);
+        let filefullname = file.to_str().unwrap();
         let mut writer = std::fs::File::create(&file).unwrap();
         //let frame_mmap = &mut bufferdata.frame_mmap.unwrap();
         if PngEncoder::new(&mut writer)
@@ -46,20 +46,27 @@ pub fn write_to_file(bufferdata: BufferData, usestdout: bool) {
             )
             .is_ok()
         {
-            tracing::info!("Image saved to {}", filename);
+            tracing::info!("Image saved to {}", filefullname);
             #[cfg(feature = "notify")]
             let _ = Notification::new()
                 .summary("FileSaved")
-                .body(&format!("File saved to {}", filename))
+                .body(&format!("File saved to {}", filefullname))
                 .icon(SUCCESSED_IMAGE)
                 .timeout(TIMEOUT)
                 .show();
+            #[cfg(feature = "notify")]
+            let _ = Notification::new()
+                .summary("Screenshot of screen")
+                .body(&file_name)
+                .icon(filefullname)
+                .timeout(TIMEOUT)
+                .show();
         } else {
-            tracing::error!("Image failed saved to {}", filename);
+            tracing::error!("Image failed saved to {}", filefullname);
             #[cfg(feature = "notify")]
             let _ = Notification::new()
                 .summary("FileSavedFailed")
-                .body(&format!("File failed saved to {}", filename))
+                .body(&format!("File failed saved to {}", filefullname))
                 .icon(FAILED_IMAGE)
                 .timeout(TIMEOUT)
                 .show();
@@ -93,30 +100,37 @@ pub fn write_to_file_mutisource(bufferdatas: Vec<BufferData>, usestdout: bool) {
         let mut writer = BufWriter::new(stdout.lock());
         writer.write_all(content).unwrap();
     } else {
-        let file = format!(
+        let file_name = format!(
             "{}-haruhui.png",
             time::SystemTime::now()
                 .duration_since(time::UNIX_EPOCH)
                 .unwrap()
                 .as_secs()
         );
-        let file = SAVEPATH.join(file);
-        let filename = file.to_str().unwrap();
+        let file = SAVEPATH.join(&file_name);
+        let filefullname = file.to_str().unwrap();
         if h_concat(&images).save(&file).is_ok() {
-            tracing::info!("Image saved to {}", filename);
+            tracing::info!("Image saved to {}", filefullname);
             #[cfg(feature = "notify")]
             let _ = Notification::new()
                 .summary("FileSaved")
-                .body(&format!("File saved to {}", filename))
+                .body(&format!("File saved to {}", filefullname))
                 .icon(SUCCESSED_IMAGE)
                 .timeout(TIMEOUT)
                 .show();
+            #[cfg(feature = "notify")]
+            let _ = Notification::new()
+                .summary("Screenshot of screen")
+                .body(&file_name)
+                .icon(filefullname)
+                .timeout(TIMEOUT)
+                .show();
         } else {
-            tracing::error!("Image failed saved to {}", filename);
+            tracing::error!("Image failed saved to {}", filefullname);
             #[cfg(feature = "notify")]
             let _ = Notification::new()
                 .summary("FileSavedFailed")
-                .body(&format!("File failed saved to {}", filename))
+                .body(&format!("File failed saved to {}", filefullname))
                 .icon(FAILED_IMAGE)
                 .timeout(TIMEOUT)
                 .show();
