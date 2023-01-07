@@ -17,14 +17,28 @@ pub fn write_to_file(bufferdata: BufferData, usestdout: bool) {
     if usestdout {
         let stdout = stdout();
         let mut writer = BufWriter::new(stdout.lock());
-        PngEncoder::new(&mut writer)
-            .write_image(
-                &bufferdata.frame_mmap.unwrap(),
-                bufferdata.width,
-                bufferdata.height,
-                image::ColorType::Rgba8,
-            )
-            .unwrap()
+        if let Err(_e) = PngEncoder::new(&mut writer).write_image(
+            &bufferdata.frame_mmap.unwrap(),
+            bufferdata.width,
+            bufferdata.height,
+            image::ColorType::Rgba8,
+        ) {
+            #[cfg(feature = "notify")]
+            let _ = Notification::new()
+                .summary("FileCopyFailed")
+                .body(&format!("File failed to copy: {_e}"))
+                .icon(FAILED_IMAGE)
+                .timeout(TIMEOUT)
+                .show();
+        } else {
+            #[cfg(feature = "notify")]
+            let _ = Notification::new()
+                .summary("Screenshot")
+                .body("Screenshot Succeed")
+                .icon(SUCCESSED_IMAGE)
+                .timeout(TIMEOUT)
+                .show();
+        }
     } else {
         let file_name = format!(
             "{}-haruhui.png",
@@ -33,7 +47,10 @@ pub fn write_to_file(bufferdata: BufferData, usestdout: bool) {
                 .unwrap()
                 .as_secs()
         );
+        #[cfg(feature = "notify")]
         let file = SAVEPATH.join(&file_name);
+        #[cfg(not(feature = "notify"))]
+        let file = SAVEPATH.join(file_name);
         let filefullname = file.to_str().unwrap();
         let mut writer = std::fs::File::create(&file).unwrap();
         //let frame_mmap = &mut bufferdata.frame_mmap.unwrap();
@@ -92,13 +109,36 @@ pub fn write_to_file_mutisource(bufferdatas: Vec<BufferData>, usestdout: bool) {
     }
     if usestdout {
         let mut buff = Cursor::new(Vec::new());
-        h_concat(&images)
-            .write_to(&mut buff, image::ImageFormat::Png)
-            .unwrap();
+        if let Err(_e) = h_concat(&images).write_to(&mut buff, image::ImageFormat::Png) {
+            #[cfg(feature = "notify")]
+            let _ = Notification::new()
+                .summary("FileCopyFailed")
+                .body(&format!("File failed to copy: {_e}"))
+                .icon(FAILED_IMAGE)
+                .timeout(TIMEOUT)
+                .show();
+            return;
+        };
         let content = buff.get_ref();
         let stdout = stdout();
         let mut writer = BufWriter::new(stdout.lock());
-        writer.write_all(content).unwrap();
+        if let Err(_e) = writer.write_all(content) {
+            #[cfg(feature = "notify")]
+            let _ = Notification::new()
+                .summary("PictureWriteToStdoutFailed")
+                .body(&format!("Picture failed to write: {_e}"))
+                .icon(FAILED_IMAGE)
+                .timeout(TIMEOUT)
+                .show();
+        } else {
+            #[cfg(feature = "notify")]
+            let _ = Notification::new()
+                .summary("Screenshot")
+                .body("Screenshot Succeed")
+                .icon(SUCCESSED_IMAGE)
+                .timeout(TIMEOUT)
+                .show();
+        };
     } else {
         let file_name = format!(
             "{}-haruhui.png",
@@ -107,7 +147,10 @@ pub fn write_to_file_mutisource(bufferdatas: Vec<BufferData>, usestdout: bool) {
                 .unwrap()
                 .as_secs()
         );
+        #[cfg(feature = "notify")]
         let file = SAVEPATH.join(&file_name);
+        #[cfg(not(feature = "notify"))]
+        let file = SAVEPATH.join(file_name);
         let filefullname = file.to_str().unwrap();
         if h_concat(&images).save(&file).is_ok() {
             tracing::info!("Image saved to {}", filefullname);
