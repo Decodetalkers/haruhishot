@@ -1,3 +1,5 @@
+use dialoguer::theme::ColorfulTheme;
+use dialoguer::FuzzySelect;
 use wayland_client::protocol::wl_output::{self, WlOutput};
 use wayland_client::protocol::wl_shm::WlShm;
 use wayland_client::Proxy;
@@ -325,7 +327,7 @@ enum ClapOption {
         usestdout: bool,
     },
     ShotWithCoosedScreen {
-        screen: String,
+        screen: Option<String>,
         usestdout: bool,
     },
     ShotWithSlurp {
@@ -351,7 +353,7 @@ fn main() {
             Command::new("output")
                 .long_flag("output")
                 .short_flag('O')
-                .arg(arg!(<Screen> ... "Screen"))
+                .arg(arg!(<Screen> ... "Screen").required(false))
                 .arg(
                     Arg::new("stdout")
                         .long("stdout")
@@ -394,14 +396,14 @@ fn main() {
         .get_matches();
     match matches.subcommand() {
         Some(("output", submatchs)) => {
-            let screen = submatchs
-                .get_one::<String>("Screen")
-                .expect("need one screen input")
-                .to_string();
             let usestdout = submatchs.get_flag("stdout");
             if !usestdout {
                 tracing_subscriber::fmt::init();
             }
+            let screen = submatchs
+                .get_one::<String>("Screen")
+                .map(|screen| screen.to_string());
+
             take_screenshot(ClapOption::ShotWithCoosedScreen { screen, usestdout });
         }
         Some(("slurp", submatchs)) => {
@@ -562,6 +564,24 @@ fn take_screenshot(option: ClapOption) {
                 filewriter::write_to_file_mutisource(bufferdatas, usestdout);
             }
             ClapOption::ShotWithCoosedScreen { screen, usestdout } => {
+                let screen = match screen {
+                    Some(screen) => screen,
+                    None => {
+                        let names = state.display_names.clone();
+                        let Ok(selection) = FuzzySelect::with_theme(&ColorfulTheme::default())
+                            .with_prompt("Choose Screen")
+                            .default(0)
+                            .items(&names[..])
+                            .interact()
+                        else {
+                            if usestdout {
+                                tracing::error!("You have not choose screen");
+                            }
+                            return;
+                        };
+                        names[selection].clone()
+                    }
+                };
                 match state.get_select_id(screen) {
                     Some(id) => {
                         let manager = state.wlr_screencopy.unwrap();
