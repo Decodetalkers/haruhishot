@@ -204,7 +204,7 @@ impl Dispatch<wl_registry::WlRegistry, ()> for AppData {
         registry: &wl_registry::WlRegistry,
         event: wl_registry::Event,
         _: &(),
-        _: &Connection,
+        conn: &Connection,
         qh: &QueueHandle<AppData>,
     ) {
         // When receiving events from the wl_registry, we are only interested in the
@@ -220,6 +220,9 @@ impl Dispatch<wl_registry::WlRegistry, ()> for AppData {
                 state
                     .displays
                     .push(registry.bind::<WlOutput, _, _>(name, version, qh, ()));
+                // get dispatch info
+                let mut event_queue = conn.new_event_queue();
+                event_queue.roundtrip(state).unwrap();
             } else if interface == WlShm::interface().name {
                 state.shm = Some(registry.bind::<WlShm, _, _>(name, version, qh, ()));
             } else if interface == ZwlrScreencopyManagerV1::interface().name {
@@ -519,8 +522,6 @@ fn take_screenshot(option: ClapOption) {
     // globals.
     event_queue.roundtrip(&mut state).unwrap();
 
-    // get output info
-    event_queue.roundtrip(&mut state).unwrap();
     if state.is_ready() {
         tracing::info!("All data is ready");
 
