@@ -38,6 +38,7 @@ prefix = get_option('prefix')
 bindir = prefix / get_option('bindir')
 datadir = prefix / get_option('datadir')
 icondir = datadir / 'pixmaps'
+manpage = get_option('mandir')
 haruhishot_target = custom_target(meson.project_name(),
   output: meson.project_name(),
   build_by_default: true,
@@ -53,5 +54,24 @@ if get_option('enable-notify')
   )
   install_data('misc/haruhi_successed.png',
     install_dir: icondir
+  )
+endif
+
+scdoc = dependency(
+  'scdoc',
+  version: '>= 1.9.7',
+  native: true
+)
+
+if scdoc.found()
+  custom_target(
+    'haruhishot.1',
+    input: 'scdoc/haruishot.1.scd',
+    output: 'haruhishot.1',
+    command: scdoc.get_variable('scdoc'),
+    feed: true,
+    capture: true,
+    install: true,
+    install_dir: prefix / manpage / 'man1'
   )
 endif
