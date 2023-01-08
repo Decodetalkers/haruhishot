@@ -1,2 +1,3 @@
 option('enable-notify', type: 'boolean', value: false, description: 'Enable notify feature')
 option('enable-gui', type: 'boolean', value: false, description: 'Enable gui feature')
+option('man-pages', type: 'boolean', value: true, description: 'Generate and install man pages')
