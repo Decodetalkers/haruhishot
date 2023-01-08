@@ -28,7 +28,7 @@ struct AppData {
     pub display_names: Vec<String>,
     pub display_description: Vec<String>,
     pub display_size: Vec<(i32, i32)>,
-    display_postion: Vec<(i32, i32)>,
+    display_position: Vec<(i32, i32)>,
     display_scale: Vec<i32>,
     display_logic_size: Vec<(i32, i32)>,
     pub shm: Option<WlShm>,
@@ -43,7 +43,7 @@ impl AppData {
             display_names: Vec::new(),
             display_description: Vec::new(),
             display_size: Vec::new(),
-            display_postion: Vec::new(),
+            display_position: Vec::new(),
             display_scale: Vec::new(),
             display_logic_size: Vec::new(),
             shm: None,
@@ -100,7 +100,7 @@ impl AppData {
         let (end_x, end_y) = (start_x + select_width, start_y + select_height);
         let mut ids = Vec::new();
         for (i, ((width, height), (x, y))) in
-            zip(&self.display_logic_size, &self.display_postion).enumerate()
+            zip(&self.display_logic_size, &self.display_position).enumerate()
         {
             // at least one point in region
             let top_left_in_region =
@@ -154,22 +154,22 @@ impl AppData {
         let (width, height) = size;
         let (end_x, end_y) = (x + width, y + height);
         let (right_bottom_x, right_bottom_y) = (
-            self.display_postion[id].0 + self.display_logic_size[id].0,
-            self.display_postion[id].1 + self.display_logic_size[id].1,
+            self.display_position[id].0 + self.display_logic_size[id].0,
+            self.display_position[id].1 + self.display_logic_size[id].1,
         );
-        let pos_x = if x - self.display_postion[id].0 >= 0 {
-            x - self.display_postion[id].0
+        let pos_x = if x - self.display_position[id].0 >= 0 {
+            x - self.display_position[id].0
         } else {
             0
         };
-        let pos_y = if y - self.display_postion[id].1 >= 0 {
-            y - self.display_postion[id].1
+        let pos_y = if y - self.display_position[id].1 >= 0 {
+            y - self.display_position[id].1
         } else {
             0
         };
 
-        let start_x = std::cmp::max(x, self.display_postion[id].0);
-        let start_y = std::cmp::max(y, self.display_postion[id].1);
+        let start_x = std::cmp::max(x, self.display_position[id].0);
+        let start_y = std::cmp::max(y, self.display_position[id].1);
         let pos_end_x = std::cmp::min(end_x, right_bottom_x);
         let pos_end_y = std::cmp::min(end_y, right_bottom_y);
         (pos_x, pos_y, pos_end_x - start_x, pos_end_y - start_y)
@@ -184,14 +184,14 @@ impl AppData {
                 zip(&self.display_names, &self.display_description),
                 zip(
                     zip(&self.display_logic_size, &self.display_size),
-                    &self.display_postion,
+                    &self.display_position,
                 ),
             ),
         ) {
             println!("{}, {},", displayname, display_description);
             println!("    Size: {},{}", x, y);
             println!("    LogicSize: {}, {}", logic_x, logic_y);
-            println!("    Postion: {}, {}", pos_x, pos_y);
+            println!("    Position: {}, {}", pos_x, pos_y);
             println!("    Scale: {}", scale);
         }
     }
@@ -282,7 +282,7 @@ impl Dispatch<ZxdgOutputV1, ()> for AppData {
     ) {
         match event {
             zxdg_output_v1::Event::LogicalPosition { x, y } => {
-                state.display_postion.push((x, y));
+                state.display_position.push((x, y));
             }
             zxdg_output_v1::Event::LogicalSize { width, height } => {
                 state.display_logic_size.push((width, height));
