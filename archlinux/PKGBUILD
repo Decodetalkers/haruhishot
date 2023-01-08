@@ -5,7 +5,7 @@ pkgdesc='One day Haruhi Suzumiya made a wlr screenshot tool'
 arch=('x86_64' 'aarch64')
 url='https://github.com/Decodetalkers/haruhishot'
 license=('MIT')
-depends=('wayland' 'wlroots')
+depends=('wayland' 'wlroots' 'qt5-base')
 makedepends=('git' 'ninja' 'meson' 'rust' 'wayland-protocols' 'wlroots')
 source=('source.tar.gz')
 sha512sums=('SKIP')
@@ -15,6 +15,7 @@ build() {
     -Dprefix=/usr \
     -Dbuildtype=release \
     -Denable-notify=true \
+    -Denable-gui=true
     build
   ninja -C build
 }

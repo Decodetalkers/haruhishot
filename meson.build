@@ -10,37 +10,29 @@ cargo = find_program('cargo', version: '>= 1.65')
 
 rustc = find_program('rustc', version: '>= 1.65')
 
-if get_option('debug')
-  if get_option('enable-notify')
-    command = [
-      cargo, 'build', '--features=notify',
-      '&&',
-      'cp', meson.global_source_root() / 'target' / 'debug' / meson.project_name(), '@OUTPUT@'
-    ]
-  else
-    command = [
-      cargo, 'build',
-      '&&',
-      'cp', meson.global_source_root() / 'target' / 'debug' / meson.project_name(), '@OUTPUT@'
-    ]
-  endif
-else
-  if get_option('enable-notify')
-    command = [
-      cargo, 'build', '--features=notify',
-      '--release',
-      '&&',
-      'cp', meson.global_source_root() / 'target' / 'release' / meson.project_name(), '@OUTPUT@'
-    ]
-  else
-    command = [
-      cargo, 'build',
-      '--release',
-      '&&',
-      'cp', meson.global_source_root() / 'target' / 'release' / meson.project_name(), '@OUTPUT@'
-    ]
-  endif
+command = [ cargo , 'build']
+
+if get_option('enable-notify')
+  command += ['--features', 'notify']
 endif
+
+if get_option('enable-gui')
+  command += ['--features', 'gui']
+endif
+
+targetdir = 'debug'
+
+if not get_option('debug')
+  command += '--release'
+  targetdir = 'release'
+endif
+
+command += [
+  '&&',
+  'cp',
+  meson.global_source_root() / 'target' / targetdir / meson.project_name(),
+  '@OUTPUT@'
+]
 
 prefix = get_option('prefix')
 bindir = prefix / get_option('bindir')

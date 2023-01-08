@@ -749,7 +749,19 @@ fn take_screenshot(option: ClapOption) {
                             }
                         }
                     }
-                    slintbackend::SlintSelection::Canceled => {}
+                    slintbackend::SlintSelection::Canceled => {
+                        #[cfg(feature = "notify")]
+                        {
+                            use crate::constenv::{FAILED_IMAGE, TIMEOUT};
+                            use notify_rust::Notification;
+                            let _ = Notification::new()
+                                .summary("Canceled")
+                                .body("Canceld to Save File")
+                                .icon(FAILED_IMAGE)
+                                .timeout(TIMEOUT)
+                                .show();
+                        }
+                    }
                 };
             }
             ClapOption::ShotWithSlurp {

@@ -1,1 +1,2 @@
 option('enable-notify', type: 'boolean', value: false, description: 'Enable notify feature')
+option('enable-gui', type: 'boolean', value: false, description: 'Enable gui feature')
