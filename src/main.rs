@@ -175,16 +175,23 @@ impl AppData {
         (pos_x, pos_y, pos_end_x - start_x, pos_end_y - start_y)
     }
     fn print_display_info(&self) {
-        for (scale, ((displayname, display_description), ((logic_x, logic_y), (x, y)))) in zip(
+        for (
+            scale,
+            ((displayname, display_description), (((logic_x, logic_y), (x, y)), (pos_x, pos_y))),
+        ) in zip(
             &self.display_scale,
             zip(
                 zip(&self.display_names, &self.display_description),
-                zip(&self.display_logic_size, &self.display_size),
+                zip(
+                    zip(&self.display_logic_size, &self.display_size),
+                    &self.display_postion,
+                ),
             ),
         ) {
             println!("{}, {},", displayname, display_description);
             println!("    Size: {},{}", x, y);
             println!("    LogicSize: {}, {}", logic_x, logic_y);
+            println!("    Postion: {}, {}", pos_x, pos_y);
             println!("    Scale: {}", scale);
         }
     }
