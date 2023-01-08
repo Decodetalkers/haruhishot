@@ -20,6 +20,8 @@ use std::iter::zip;
 
 mod constenv;
 mod filewriter;
+#[cfg(feature = "gui")]
+mod slintbackend;
 mod wlrbackend;
 // This struct represents the state of our app. This simple app does not
 // need any state, by this type still supports the `Dispatch` implementations.
@@ -337,6 +339,8 @@ enum ClapOption {
         screen: Option<String>,
         usestdout: bool,
     },
+    #[cfg(feature = "gui")]
+    ShotWithGui,
     ShotWithSlurp {
         pos_x: i32,
         pos_y: i32,
@@ -346,11 +350,74 @@ enum ClapOption {
     },
 }
 
+enum SlurpParseResult {
+    Finished(i32, i32, i32, i32),
+    MeetError,
+}
+
+fn parseslurp(posmessage: String) -> SlurpParseResult {
+    let posmessage: Vec<&str> = posmessage.trim().split(' ').collect();
+    #[cfg(feature = "notify")]
+    let notify_error = |message: &str| {
+        use crate::constenv::{FAILED_IMAGE, TIMEOUT};
+        use notify_rust::Notification;
+        let _ = Notification::new()
+            .summary("FileSavedFailed")
+            .body(message)
+            .icon(FAILED_IMAGE)
+            .timeout(TIMEOUT)
+            .show();
+    };
+    if posmessage.len() != 2 {
+        tracing::error!("Error input");
+        #[cfg(feature = "notify")]
+        notify_error("Get error input, Maybe canceled?");
+        return SlurpParseResult::MeetError;
+    }
+    let position: Vec<&str> = posmessage[0].split(',').collect();
+
+    let Ok(pos_x) = position[0]
+        .parse::<i32>() else {
+            tracing::error!("Error parse, Cannot get pos_x");
+            #[cfg(feature = "notify")]
+            notify_error("Error parse, Cannot get pos_x");
+            return SlurpParseResult::MeetError;
+    };
+    let Ok(pos_y) = position[1]
+       .parse::<i32>() else {
+           tracing::error!("Error parse, Cannot get pos_y");
+           #[cfg(feature = "notify")]
+           notify_error("Error parse, Cannot get pos_y");
+           return SlurpParseResult::MeetError;
+    };
+
+    let map: Vec<&str> = posmessage[1].split('x').collect();
+    if map.len() != 2 {
+        eprintln!("Error input");
+        return SlurpParseResult::MeetError;
+    }
+    let Ok(width) = map[0]
+        .parse::<i32>() else {
+            tracing::error!("Error parse, cannot get width");
+            #[cfg(feature = "notify")]
+            notify_error("Error parse, Cannot get width");
+            return SlurpParseResult::MeetError;
+    };
+    let Ok(height) = map[1]
+        .parse::<i32>() else {
+            tracing::error!("Error parse, cannot get height");
+            #[cfg(feature = "notify")]
+            notify_error("Error parse, Cannot get height");
+            return SlurpParseResult::MeetError;
+    };
+    SlurpParseResult::Finished(pos_x, pos_y, width, height)
+}
+
 // The main function of our program
 fn main() {
     const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-    let matches = Command::new("haruhishot")
+    let command = Command::new("haruhishot")
         .about("One day Haruhi Suzumiya made a wlr screenshot tool")
         .version(VERSION)
         .subcommand_required(true)
@@ -399,8 +466,14 @@ fn main() {
                 .long_flag("list_outputs")
                 .short_flag('L')
                 .about("list all outputs"),
-        )
-        .get_matches();
+        );
+    #[cfg(feature = "gui")]
+    let command = command.subcommand(
+        Command::new("gui")
+            .long_flag("gui")
+            .about("open gui selection"),
+    );
+    let matches = command.get_matches();
     match matches.subcommand() {
         Some(("output", submatchs)) => {
             let usestdout = submatchs.get_flag("stdout");
@@ -418,70 +491,14 @@ fn main() {
                 .get_one::<String>("Slurp")
                 .expect("Need message")
                 .to_string();
-            let posmessage: Vec<&str> = posmessage.trim().split(' ').collect();
-            #[cfg(feature = "notify")]
-            let notify_error = |message: &str| {
-                use crate::constenv::{FAILED_IMAGE, TIMEOUT};
-                use notify_rust::Notification;
-                #[cfg(feature = "notify")]
-                let _ = Notification::new()
-                    .summary("FileSavedFailed")
-                    .body(message)
-                    .icon(FAILED_IMAGE)
-                    .timeout(TIMEOUT)
-                    .show();
-            };
-            if posmessage.len() != 2 {
-                tracing_subscriber::fmt::init();
-                tracing::error!("Error input");
-                #[cfg(feature = "notify")]
-                notify_error("Get error input, Maybe canceled?");
-                return;
-            }
-            let position: Vec<&str> = posmessage[0].split(',').collect();
 
-            let Ok(pos_x) = position[0]
-                .parse::<i32>() else {
-                    tracing_subscriber::fmt::init();
-                    tracing::error!("Error parse, Cannot get pos_x");
-                    #[cfg(feature = "notify")]
-                    notify_error("Error parse, Cannot get pos_x");
-                    return;
-                };
-            let Ok(pos_y) = position[1]
-                .parse::<i32>() else {
-                    tracing_subscriber::fmt::init();
-                    tracing::error!("Error parse, Cannot get pos_y");
-                    #[cfg(feature = "notify")]
-                    notify_error("Error parse, Cannot get pos_y");
-                    return;
-                };
-
-            let map: Vec<&str> = posmessage[1].split('x').collect();
-            if map.len() != 2 {
-                eprintln!("Error input");
-                return;
-            }
-            let Ok(width) = map[0]
-                .parse::<i32>() else {
-                    tracing_subscriber::fmt::init();
-                    tracing::error!("Error parse, cannot get width");
-                    #[cfg(feature = "notify")]
-                    notify_error("Error parse, Cannot get width");
-                    return;
-            };
-            let Ok(height) = map[1]
-                .parse::<i32>() else {
-                    tracing_subscriber::fmt::init();
-                    tracing::error!("Error parse, cannot get height");
-                    #[cfg(feature = "notify")]
-                    notify_error("Error parse, Cannot get height");
-                    return;
-            };
             let usestdout = submatchs.get_flag("stdout");
             if !usestdout {
                 tracing_subscriber::fmt::init();
             }
+            let SlurpParseResult::Finished(pos_x, pos_y, width, height) = parseslurp(posmessage) else {
+                return;
+            };
             take_screenshot(ClapOption::ShotWithSlurp {
                 pos_x,
                 pos_y,
@@ -497,6 +514,12 @@ fn main() {
                 tracing_subscriber::fmt::init();
             }
             take_screenshot(ClapOption::ShotWithFullScreen { usestdout });
+        }
+        #[cfg(feature = "gui")]
+        Some(("gui", _)) => {
+            tracing_subscriber::fmt::init();
+            take_screenshot(ClapOption::ShotWithGui);
+            //slintbackend::selectgui();
         }
         _ => unimplemented!(),
     }
@@ -534,14 +557,12 @@ fn take_screenshot(option: ClapOption) {
     if state.is_ready() {
         tracing::info!("All data is ready");
 
-        //
-        match option {
-            ClapOption::ShotWithFullScreen { usestdout } => {
-                let manager = state.wlr_screencopy.unwrap();
-                let shm = state.shm.unwrap();
-                let mut bufferdatas = Vec::new();
-                for (index, wldisplay) in state.displays.iter().enumerate() {
-                    let Some(bufferdata) = wlrbackend::capture_output_frame(
+        let shootglobal = |usestdout: bool, state: &AppData| {
+            let manager = state.wlr_screencopy.clone().unwrap();
+            let shm = state.shm.clone().unwrap();
+            let mut bufferdatas = Vec::new();
+            for (index, wldisplay) in state.displays.iter().enumerate() {
+                let Some(bufferdata) = wlrbackend::capture_output_frame(
                         &conn,
                         wldisplay,
                         manager.clone(),
@@ -566,9 +587,71 @@ fn take_screenshot(option: ClapOption) {
                         }
                         return;
                     };
-                    bufferdatas.push(bufferdata);
-                }
-                filewriter::write_to_file_mutisource(bufferdatas, usestdout);
+                bufferdatas.push(bufferdata);
+            }
+            filewriter::write_to_file_mutisource(bufferdatas, usestdout);
+        };
+        let shootchoosedscreen = |usestdout: bool, id: usize, state: &AppData| {
+            let manager = state.wlr_screencopy.clone().unwrap();
+            let shm = state.shm.clone().unwrap();
+            let bufferdata = wlrbackend::capture_output_frame(
+                &conn,
+                &state.displays[id],
+                manager,
+                &display,
+                shm,
+                None,
+            );
+            match bufferdata {
+                Some(data) => filewriter::write_to_file(data, usestdout),
+                None => tracing::error!("Nothing get, check the log"),
+            }
+        };
+
+        let shotwithslurp = |usestdout: bool,
+                             state: &AppData,
+                             ids: Vec<usize>,
+                             posinformation: (i32, i32, i32, i32)| {
+            let (pos_x, pos_y, width, height) = posinformation;
+            let manager = state.wlr_screencopy.clone().unwrap();
+            let shm = state.shm.clone().unwrap();
+            let mut bufferdatas = Vec::new();
+            for id in ids {
+                let (pos_x, pos_y, width, height) =
+                    state.get_real_pos((pos_x, pos_y), (width, height), id);
+                let Some(bufferdata) = wlrbackend::capture_output_frame(
+                    &conn,
+                    &state.displays[id],
+                    manager.clone(),
+                    &display,
+                    shm.clone(),
+                    Some((pos_x, pos_y, width,height)),
+                ) else {
+                    if usestdout {
+                        tracing_subscriber::fmt().init();
+                    }
+                    tracing::error!("Cannot get frame from screen: {} ",  state.display_names[id]);
+                    #[cfg(feature = "notify")]
+                    {
+                        use crate::constenv::{FAILED_IMAGE, TIMEOUT};
+                        use notify_rust::Notification;
+                        let _ = Notification::new()
+                            .summary("FileSavedFailed")
+                            .body(&format!("Cannot get frame from screen: {}", state.display_names[id]))
+                            .icon(FAILED_IMAGE)
+                            .timeout(TIMEOUT)
+                            .show();
+                    }
+                    return;
+                };
+                bufferdatas.push(bufferdata);
+            }
+            filewriter::write_to_file_mutisource(bufferdatas, usestdout);
+        };
+        //
+        match option {
+            ClapOption::ShotWithFullScreen { usestdout } => {
+                shootglobal(usestdout, &state);
             }
             ClapOption::ShotWithCoosedScreen { screen, usestdout } => {
                 let screen = match screen {
@@ -591,20 +674,7 @@ fn take_screenshot(option: ClapOption) {
                 };
                 match state.get_select_id(screen) {
                     Some(id) => {
-                        let manager = state.wlr_screencopy.unwrap();
-                        let shm = state.shm.unwrap();
-                        let bufferdata = wlrbackend::capture_output_frame(
-                            &conn,
-                            &state.displays[id],
-                            manager,
-                            &display,
-                            shm,
-                            None,
-                        );
-                        match bufferdata {
-                            Some(data) => filewriter::write_to_file(data, usestdout),
-                            None => tracing::error!("Nothing get, check the log"),
-                        }
+                        shootchoosedscreen(usestdout, id, &state);
                     }
                     None => {
                         tracing::error!("Cannot find screen");
@@ -618,6 +688,69 @@ fn take_screenshot(option: ClapOption) {
                     event_queue.roundtrip(&mut state).unwrap();
                 }
                 state.print_display_info();
+            }
+            #[cfg(feature = "gui")]
+            ClapOption::ShotWithGui => {
+                let xdg_output_manager = state.xdg_output_manager.clone().unwrap();
+                for i in 0..state.displays.len() {
+                    xdg_output_manager.get_xdg_output(&state.displays[i], &qh, ());
+                    event_queue.roundtrip(&mut state).unwrap();
+                }
+                match slintbackend::selectgui(
+                    state.display_names.clone(),
+                    state.display_description.clone(),
+                ) {
+                    slintbackend::SlintSelection::GlobalScreen => {
+                        shootglobal(false, &state);
+                    }
+                    slintbackend::SlintSelection::Selection(index) => {
+                        shootchoosedscreen(false, index as usize, &state);
+                    }
+                    slintbackend::SlintSelection::Slurp => {
+                        let Ok(output) = std::process::Command::new("slurp")
+                            .arg("-d")
+                            .output() else {
+                                tracing::error!("Maybe Slurp Missing?");
+                                #[cfg(feature = "notify")]
+                                {
+                                    use crate::constenv::{FAILED_IMAGE, TIMEOUT};
+                                    use notify_rust::Notification;
+                                    let _ = Notification::new()
+                                        .summary("FileSavedFailed")
+                                        .body("Maybe Slurp Missing?")
+                                        .icon(FAILED_IMAGE)
+                                        .timeout(TIMEOUT)
+                                        .show();
+                                }
+                                return;
+                        };
+                        let message = output.stdout;
+                        let posmessage = String::from_utf8_lossy(&message).to_string();
+                        let SlurpParseResult::Finished(pos_x, pos_y , width , height ) = parseslurp(posmessage) else {
+                            return;
+                        };
+                        match state.get_pos_display_ids((pos_x, pos_y), (width, height)) {
+                            Some(ids) => {
+                                shotwithslurp(false, &state, ids, (pos_x, pos_y, width, height));
+                            }
+                            None => {
+                                tracing::error!("Pos is over the screen");
+                                #[cfg(feature = "notify")]
+                                {
+                                    use crate::constenv::{FAILED_IMAGE, TIMEOUT};
+                                    use notify_rust::Notification;
+                                    let _ = Notification::new()
+                                        .summary("FileSavedFailed")
+                                        .body("Pos is over the screen")
+                                        .icon(FAILED_IMAGE)
+                                        .timeout(TIMEOUT)
+                                        .show();
+                                }
+                            }
+                        }
+                    }
+                    slintbackend::SlintSelection::Canceled => {}
+                };
             }
             ClapOption::ShotWithSlurp {
                 pos_x,
@@ -633,41 +766,8 @@ fn take_screenshot(option: ClapOption) {
                 }
                 match state.get_pos_display_ids((pos_x, pos_y), (width, height)) {
                     Some(ids) => {
-                        //let (pos_x, pos_y) = state.get_real_pos((pos_x, pos_y), id);
-                        let manager = state.wlr_screencopy.clone().unwrap();
-                        let shm = state.shm.clone().unwrap();
-                        let mut bufferdatas = Vec::new();
-                        for id in ids {
-                            let (pos_x, pos_y, width, height) =
-                                state.get_real_pos((pos_x, pos_y), (width, height), id);
-                            let Some(bufferdata) = wlrbackend::capture_output_frame(
-                                &conn,
-                                &state.displays[id],
-                                manager.clone(),
-                                &display,
-                                shm.clone(),
-                                Some((pos_x, pos_y, width,height)),
-                            ) else {
-                                if usestdout {
-                                    tracing_subscriber::fmt().init();
-                                }
-                                tracing::error!("Cannot get frame from screen: {} ",  state.display_names[id]);
-                                #[cfg(feature = "notify")]
-                                {
-                                    use crate::constenv::{FAILED_IMAGE, TIMEOUT};
-                                    use notify_rust::Notification;
-                                    let _ = Notification::new()
-                                        .summary("FileSavedFailed")
-                                        .body(&format!("Cannot get frame from screen: {}", state.display_names[id]))
-                                        .icon(FAILED_IMAGE)
-                                        .timeout(TIMEOUT)
-                                        .show();
-                                }
-                                return;
-                            };
-                            bufferdatas.push(bufferdata);
-                        }
-                        filewriter::write_to_file_mutisource(bufferdatas, usestdout);
+                        println!("{pos_x},{pos_y}, {width},{height}");
+                        shotwithslurp(usestdout, &state, ids, (pos_x, pos_y, width, height));
                     }
                     None => {
                         tracing::error!("Pos is over the screen");
