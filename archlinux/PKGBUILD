@@ -15,7 +15,7 @@ build() {
     -Dprefix=/usr \
     -Dbuildtype=release \
     -Denable-notify=true \
-    -Denable-gui=true
+    -Denable-gui=true \
     build
   ninja -C build
 }
