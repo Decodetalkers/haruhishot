@@ -766,7 +766,6 @@ fn take_screenshot(option: ClapOption) {
                 }
                 match state.get_pos_display_ids((pos_x, pos_y), (width, height)) {
                     Some(ids) => {
-                        println!("{pos_x},{pos_y}, {width},{height}");
                         shotwithslurp(usestdout, &state, ids, (pos_x, pos_y, width, height));
                     }
                     None => {
