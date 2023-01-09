@@ -16,6 +16,7 @@ build() {
     -Dbuildtype=release \
     -Denable-notify=true \
     -Denable-gui=true \
+    -Ddesktop-entry=true \
     build
   ninja -C build
 }
