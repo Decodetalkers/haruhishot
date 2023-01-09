@@ -44,31 +44,34 @@ pub fn write_to_file(bufferdata: BufferData, usestdout: bool) {
             } else {
                 #[cfg(feature = "notify")]
                 {
-                    let image = image::load_from_memory_with_format(
-                        buff.get_ref(),
-                        image::ImageFormat::Png,
-                    )
-                    .unwrap();
-
                     let _ = Notification::new()
                         .summary("Screenshot")
                         .body("Screenshot Succeed")
                         .icon(SUCCESSED_IMAGE)
                         .timeout(TIMEOUT)
                         .show();
-                    let _ = Notification::new()
-                        .summary("Screenshot")
-                        .body("Your Screenshot is")
-                        .image_data(
-                            notify_rust::Image::from_rgba(
-                                image.width() as i32,
-                                image.height() as i32,
-                                image.as_rgba8().unwrap().to_vec(),
-                            )
-                            .unwrap(),
-                        )
-                        .timeout(TIMEOUT)
-                        .show();
+
+                    // TO SLOW, I think before should deirectroy write to wl-copy
+                    // After can use command line under
+                    //let image = image::load_from_memory_with_format(
+                    //    buff.get_ref(),
+                    //    image::ImageFormat::Png,
+                    //)
+                    //.unwrap();
+
+                    //let _ = Notification::new()
+                    //    .summary("Screenshot")
+                    //    .body("Your Screenshot is")
+                    //    .image_data(
+                    //        notify_rust::Image::from_rgba(
+                    //            image.width() as i32,
+                    //            image.height() as i32,
+                    //            image.as_rgba8().unwrap().to_vec(),
+                    //        )
+                    //        .unwrap(),
+                    //    )
+                    //    .timeout(TIMEOUT)
+                    //    .show();
                 }
             }
         }
@@ -172,20 +175,20 @@ pub fn write_to_file_mutisource(bufferdatas: Vec<BufferData>, usestdout: bool) {
                 .icon(SUCCESSED_IMAGE)
                 .timeout(TIMEOUT)
                 .show();
-            #[cfg(feature = "notify")]
-            let _ = Notification::new()
-                .summary("Screenshot")
-                .body("Your Screenshot is")
-                .image_data(
-                    notify_rust::Image::from_rgba(
-                        image.width() as i32,
-                        image.height() as i32,
-                        image.as_ref().to_vec(),
-                    )
-                    .unwrap(),
-                )
-                .timeout(TIMEOUT)
-                .show();
+            //#[cfg(feature = "notify")]
+            //let _ = Notification::new()
+            //    .summary("Screenshot")
+            //    .body("Your Screenshot is")
+            //    .image_data(
+            //        notify_rust::Image::from_rgba(
+            //            image.width() as i32,
+            //            image.height() as i32,
+            //            image.as_ref().to_vec(),
+            //        )
+            //        .unwrap(),
+            //    )
+            //    .timeout(TIMEOUT)
+            //    .show();
         };
     } else {
         let file_name = format!(
