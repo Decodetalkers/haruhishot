@@ -2147,6 +2147,8 @@ version = "4.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3ce656bb6d22a93ae276a23de52d1aec5ba4db3ece3c0eb79dfd5add7384db6a"
 dependencies = [
+ "image",
+ "lazy_static",
  "mac-notification-sys",
  "serde",
  "tauri-winrt-notification",

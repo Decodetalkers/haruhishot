@@ -15,9 +15,8 @@ use std::time;
 //use std::io::{stdout, BufWriter};
 pub fn write_to_file(bufferdata: BufferData, usestdout: bool) {
     if usestdout {
-        let stdout = stdout();
-        let mut writer = BufWriter::new(stdout.lock());
-        if let Err(_e) = PngEncoder::new(&mut writer).write_image(
+        let mut buff = Cursor::new(Vec::new());
+        if let Err(_e) = PngEncoder::new(&mut buff).write_image(
             &bufferdata.frame_mmap.unwrap(),
             bufferdata.width,
             bufferdata.height,
@@ -31,13 +30,47 @@ pub fn write_to_file(bufferdata: BufferData, usestdout: bool) {
                 .timeout(TIMEOUT)
                 .show();
         } else {
-            #[cfg(feature = "notify")]
-            let _ = Notification::new()
-                .summary("Screenshot")
-                .body("Screenshot Succeed")
-                .icon(SUCCESSED_IMAGE)
-                .timeout(TIMEOUT)
-                .show();
+            let content = buff.get_ref();
+            let stdout = stdout();
+            let mut writer = BufWriter::new(stdout.lock());
+            if let Err(_e) = writer.write_all(content) {
+                #[cfg(feature = "notify")]
+                let _ = Notification::new()
+                    .summary("PictureWriteToStdoutFailed")
+                    .body(&format!("Picture failed to write: {_e}"))
+                    .icon(FAILED_IMAGE)
+                    .timeout(TIMEOUT)
+                    .show();
+            } else {
+                #[cfg(feature = "notify")]
+                {
+                    let image = image::load_from_memory_with_format(
+                        buff.get_ref(),
+                        image::ImageFormat::Png,
+                    )
+                    .unwrap();
+
+                    let _ = Notification::new()
+                        .summary("Screenshot")
+                        .body("Screenshot Succeed")
+                        .icon(SUCCESSED_IMAGE)
+                        .timeout(TIMEOUT)
+                        .show();
+                    let _ = Notification::new()
+                        .summary("Screenshot")
+                        .body("Your Screenshot is")
+                        .image_data(
+                            notify_rust::Image::from_rgba(
+                                image.width() as i32,
+                                image.height() as i32,
+                                image.as_rgba8().unwrap().to_vec(),
+                            )
+                            .unwrap(),
+                        )
+                        .timeout(TIMEOUT)
+                        .show();
+                }
+            }
         }
     } else {
         let file_name = format!(
@@ -109,7 +142,8 @@ pub fn write_to_file_mutisource(bufferdatas: Vec<BufferData>, usestdout: bool) {
     }
     if usestdout {
         let mut buff = Cursor::new(Vec::new());
-        if let Err(_e) = h_concat(&images).write_to(&mut buff, image::ImageFormat::Png) {
+        let image = h_concat(&images);
+        if let Err(_e) = image.write_to(&mut buff, image::ImageFormat::Png) {
             #[cfg(feature = "notify")]
             let _ = Notification::new()
                 .summary("FileCopyFailed")
@@ -138,6 +172,20 @@ pub fn write_to_file_mutisource(bufferdatas: Vec<BufferData>, usestdout: bool) {
                 .icon(SUCCESSED_IMAGE)
                 .timeout(TIMEOUT)
                 .show();
+            #[cfg(feature = "notify")]
+            let _ = Notification::new()
+                .summary("Screenshot")
+                .body("Your Screenshot is")
+                .image_data(
+                    notify_rust::Image::from_rgba(
+                        image.width() as i32,
+                        image.height() as i32,
+                        image.as_ref().to_vec(),
+                    )
+                    .unwrap(),
+                )
+                .timeout(TIMEOUT)
+                .show();
         };
     } else {
         let file_name = format!(
@@ -152,6 +200,7 @@ pub fn write_to_file_mutisource(bufferdatas: Vec<BufferData>, usestdout: bool) {
         #[cfg(not(feature = "notify"))]
         let file = SAVEPATH.join(file_name);
         let filefullname = file.to_str().unwrap();
+
         if h_concat(&images).save(&file).is_ok() {
             tracing::info!("Image saved to {}", filefullname);
             #[cfg(feature = "notify")]
