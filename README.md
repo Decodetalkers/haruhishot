@@ -17,6 +17,7 @@ If you want to package it , you can use `meson.build`
     -Dprefix=/usr \
     -Dbuildtype=release \
     -Denable-notify=true \ # it is a feature of notify, can set it to false
+    -Ddesktop-entry=true \ # it will install a desktop entry, can set it to false
     build
   ninja -C build
 ```
