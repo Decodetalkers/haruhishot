@@ -665,19 +665,20 @@ fn take_screenshot(option: ClapOption) {
                             .interact()
                         else {
                             if usestdout {
-                                #[cfg(feature = "notify")]
-                                {
-                                    use crate::constenv::{FAILED_IMAGE, TIMEOUT};
-                                    use notify_rust::Notification;
-                                    let _ = Notification::new()
-                                        .summary("FileSavedFailed")
-                                        .body("Unknow Screen")
-                                        .icon(FAILED_IMAGE)
-                                        .timeout(TIMEOUT)
-                                        .show();
-                                }
-                                tracing::error!("You have not choose screen");
+                                tracing_subscriber::fmt().init();
                             }
+                            #[cfg(feature = "notify")]
+                            {
+                                use crate::constenv::{FAILED_IMAGE, TIMEOUT};
+                                use notify_rust::Notification;
+                                let _ = Notification::new()
+                                    .summary("FileSavedFailed")
+                                    .body("Unknow Screen")
+                                    .icon(FAILED_IMAGE)
+                                    .timeout(TIMEOUT)
+                                    .show();
+                            }
+                            tracing::error!("You have not choose screen");
                             return;
                         };
                         names[selection].clone()
@@ -698,6 +699,9 @@ fn take_screenshot(option: ClapOption) {
                                 .icon(FAILED_IMAGE)
                                 .timeout(TIMEOUT)
                                 .show();
+                        }
+                        if usestdout {
+                            tracing_subscriber::fmt().init();
                         }
                         tracing::error!("Cannot find screen");
                     }
