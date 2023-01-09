@@ -85,7 +85,7 @@ if get_option('desktop-entry')
     install_dir: datadir / 'applications'
   )
   install_data('misc/haruhishot.svg',
-    install_dir: datadir / 'icons' / 'hicolor' / '128x128' / 'apps'
+    install_dir: datadir / 'icons' / 'hicolor' / 'scalable' / 'apps'
   )
 endif
 
