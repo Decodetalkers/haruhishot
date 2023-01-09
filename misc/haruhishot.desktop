@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Version=0.2.9
+Name=haruhishot
+Comment=wlr screenshot for CLI and GUI
+Exec=haruhishot --gui
+Icon=haruhishot.svg
+Terminal=false
+Categories=Utilities;Screenshot;Qt;
+Actions=Global
+
+[Desktop Action Global]
+Name=Global Screenshot Directly
+Exec=haruhishot --global

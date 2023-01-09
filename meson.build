@@ -6,9 +6,9 @@ project('haruhishot', 'rust',
 dependency('wayland-client')
 dependency('wlroots')
 
-cargo = find_program('cargo', version: '>= 1.65')
+cargo = find_program('cargo', version: '>= 1.66')
 
-rustc = find_program('rustc', version: '>= 1.65')
+rustc = find_program('rustc', version: '>= 1.66')
 
 command = [ cargo , 'build']
 
@@ -78,3 +78,14 @@ if get_option('man-pages')
     )
   endif
 endif
+
+# Install desktop entry
+if get_option('desktop-entry')
+  install_data('misc/haruhishot.desktop',
+    install_dir: datadir / 'applications'
+  )
+  install_data('misc/haruhishot.svg',
+    install_dir: datadir / 'icons' / 'hicolor' / '128x128' / 'apps'
+  )
+endif
+
