@@ -665,6 +665,17 @@ fn take_screenshot(option: ClapOption) {
                             .interact()
                         else {
                             if usestdout {
+                                #[cfg(feature = "notify")]
+                                {
+                                    use crate::constenv::{FAILED_IMAGE, TIMEOUT};
+                                    use notify_rust::Notification;
+                                    let _ = Notification::new()
+                                        .summary("FileSavedFailed")
+                                        .body("Unknow Screen")
+                                        .icon(FAILED_IMAGE)
+                                        .timeout(TIMEOUT)
+                                        .show();
+                                }
                                 tracing::error!("You have not choose screen");
                             }
                             return;
@@ -677,6 +688,17 @@ fn take_screenshot(option: ClapOption) {
                         shootchoosedscreen(usestdout, id, &state);
                     }
                     None => {
+                        #[cfg(feature = "notify")]
+                        {
+                            use crate::constenv::{FAILED_IMAGE, TIMEOUT};
+                            use notify_rust::Notification;
+                            let _ = Notification::new()
+                                .summary("FileSavedFailed")
+                                .body("Unknow Screen")
+                                .icon(FAILED_IMAGE)
+                                .timeout(TIMEOUT)
+                                .show();
+                        }
                         tracing::error!("Cannot find screen");
                     }
                 }
@@ -797,5 +819,18 @@ fn take_screenshot(option: ClapOption) {
                 }
             }
         }
+    } else {
+        #[cfg(feature = "notify")]
+        {
+            use crate::constenv::{FAILED_IMAGE, TIMEOUT};
+            use notify_rust::Notification;
+            let _ = Notification::new()
+                .summary("FileSavedFailed")
+                .body("Cannot get Data")
+                .icon(FAILED_IMAGE)
+                .timeout(TIMEOUT)
+                .show();
+        }
+        tracing::error!("You have not choose screen");
     }
 }
