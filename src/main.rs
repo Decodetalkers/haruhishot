@@ -558,14 +558,14 @@ fn take_screenshot(option: ClapOption) {
         tracing::info!("All data is ready");
 
         let shootglobal = |usestdout: bool, state: &AppData| {
-            let manager = state.wlr_screencopy.clone().unwrap();
-            let shm = state.shm.clone().unwrap();
+            let manager = state.wlr_screencopy.as_ref().unwrap();
+            let shm = state.shm.as_ref().unwrap();
             let mut bufferdatas = Vec::new();
             for (index, wldisplay) in state.displays.iter().enumerate() {
                 let Some(bufferdata) = wlrbackend::capture_output_frame(
                         &conn,
                         wldisplay,
-                        manager.clone(),
+                        manager,
                         &display,
                         shm.clone(),
                         None,
@@ -592,7 +592,7 @@ fn take_screenshot(option: ClapOption) {
             filewriter::write_to_file_mutisource(bufferdatas, usestdout);
         };
         let shootchoosedscreen = |usestdout: bool, id: usize, state: &AppData| {
-            let manager = state.wlr_screencopy.clone().unwrap();
+            let manager = state.wlr_screencopy.as_ref().unwrap();
             let shm = state.shm.clone().unwrap();
             let bufferdata = wlrbackend::capture_output_frame(
                 &conn,
@@ -613,7 +613,7 @@ fn take_screenshot(option: ClapOption) {
                              ids: Vec<usize>,
                              posinformation: (i32, i32, i32, i32)| {
             let (pos_x, pos_y, width, height) = posinformation;
-            let manager = state.wlr_screencopy.clone().unwrap();
+            let manager = state.wlr_screencopy.as_ref().unwrap();
             let shm = state.shm.clone().unwrap();
             let mut bufferdatas = Vec::new();
             for id in ids {
@@ -622,7 +622,7 @@ fn take_screenshot(option: ClapOption) {
                 let Some(bufferdata) = wlrbackend::capture_output_frame(
                     &conn,
                     &state.displays[id],
-                    manager.clone(),
+                    manager,
                     &display,
                     shm.clone(),
                     Some((pos_x, pos_y, width,height)),
@@ -657,7 +657,7 @@ fn take_screenshot(option: ClapOption) {
                 let screen = match screen {
                     Some(screen) => screen,
                     None => {
-                        let names = state.display_names.clone();
+                        let names = &state.display_names;
                         let Ok(selection) = FuzzySelect::with_theme(&ColorfulTheme::default())
                             .with_prompt("Choose Screen")
                             .default(0)

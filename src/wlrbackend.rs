@@ -262,7 +262,7 @@ impl Dispatch<ZwlrScreencopyFrameV1, ()> for BufferData {
 pub fn capture_output_frame(
     connection: &Connection,
     output: &WlOutput,
-    manager: ZwlrScreencopyManagerV1,
+    manager: &ZwlrScreencopyManagerV1,
     display: &WlDisplay,
     shm: wl_shm::WlShm,
     slurpoption: Option<(i32, i32, i32, i32)>,
