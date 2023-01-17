@@ -568,6 +568,7 @@ fn take_screenshot(option: ClapOption) {
                         manager,
                         &display,
                         shm.clone(),
+                        state.display_logic_size[index],
                         None,
                     ) else {
                         if usestdout {
@@ -600,6 +601,7 @@ fn take_screenshot(option: ClapOption) {
                 manager,
                 &display,
                 shm,
+                state.display_logic_size[id],
                 None,
             );
             match bufferdata {
@@ -625,6 +627,7 @@ fn take_screenshot(option: ClapOption) {
                     manager,
                     &display,
                     shm.clone(),
+                    (width, height),
                     Some((pos_x, pos_y, width,height)),
                 ) else {
                     if usestdout {
@@ -651,6 +654,11 @@ fn take_screenshot(option: ClapOption) {
         //
         match option {
             ClapOption::ShotWithFullScreen { usestdout } => {
+                let xdg_output_manager = state.xdg_output_manager.clone().unwrap();
+                for i in 0..state.displays.len() {
+                    xdg_output_manager.get_xdg_output(&state.displays[i], &qh, ());
+                    event_queue.roundtrip(&mut state).unwrap();
+                }
                 shootglobal(usestdout, &state);
             }
             ClapOption::ShotWithCoosedScreen { screen, usestdout } => {

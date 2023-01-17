@@ -139,9 +139,15 @@ pub fn write_to_file_mutisource(bufferdatas: Vec<BufferData>, usestdout: bool) {
                 image::ColorType::Rgba8,
             )
             .unwrap();
-        images.push(
-            image::load_from_memory_with_format(buff.get_ref(), image::ImageFormat::Png).unwrap(),
+        let image =
+            image::load_from_memory_with_format(buff.get_ref(), image::ImageFormat::Png).unwrap();
+        let image = image::imageops::resize(
+            &image,
+            buffer.realwidth as u32,
+            buffer.realheight as u32,
+            image::imageops::FilterType::Nearest,
         );
+        images.push(image);
     }
     if usestdout {
         let mut buff = Cursor::new(Vec::new());

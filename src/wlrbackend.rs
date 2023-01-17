@@ -107,6 +107,8 @@ pub struct BufferData {
     //pub buffer: Option<WlBuffer>,
     pub width: u32,
     pub height: u32,
+    pub realwidth: i32,
+    pub realheight: i32,
     //pub stride: u32,
     shm: WlShm,
     pub frame_mmap: Option<MmapMut>,
@@ -114,11 +116,13 @@ pub struct BufferData {
 }
 
 impl BufferData {
-    fn new(shm: WlShm) -> Self {
+    fn new(shm: WlShm, (realwidth, realheight): (i32, i32)) -> Self {
         BufferData {
             //buffer: None,
             width: 0,
             height: 0,
+            realheight,
+            realwidth,
             // stride: 0,
             shm,
             frame_mmap: None,
@@ -265,12 +269,13 @@ pub fn capture_output_frame(
     manager: &ZwlrScreencopyManagerV1,
     display: &WlDisplay,
     shm: wl_shm::WlShm,
+    (realwidth, realheight): (i32, i32),
     slurpoption: Option<(i32, i32, i32, i32)>,
 ) -> Option<BufferData> {
     let mut event_queue = connection.new_event_queue();
     let qh = event_queue.handle();
     display.get_registry(&qh, ());
-    let mut framesate = BufferData::new(shm);
+    let mut framesate = BufferData::new(shm, (realwidth, realheight));
     match slurpoption {
         None => {
             manager.capture_output(0, output, &qh, ());
