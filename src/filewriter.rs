@@ -145,7 +145,7 @@ pub fn write_to_file_mutisource(bufferdatas: Vec<BufferData>, usestdout: bool) {
             &image,
             buffer.realwidth as u32,
             buffer.realheight as u32,
-            image::imageops::FilterType::Nearest,
+            image::imageops::FilterType::Gaussian,
         );
         images.push(image);
     }
