@@ -694,6 +694,11 @@ fn take_screenshot(option: ClapOption) {
                 };
                 match state.get_select_id(screen) {
                     Some(id) => {
+                        let xdg_output_manager = state.xdg_output_manager.clone().unwrap();
+                        for i in 0..state.displays.len() {
+                            xdg_output_manager.get_xdg_output(&state.displays[i], &qh, ());
+                            event_queue.roundtrip(&mut state).unwrap();
+                        }
                         shootchoosedscreen(usestdout, id, &state);
                     }
                     None => {
