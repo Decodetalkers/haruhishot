@@ -12,6 +12,29 @@ use std::io::Write;
 use std::io::{stdout, BufWriter, Cursor};
 use std::time;
 
+pub fn get_color(bufferdata: BufferData) {
+    let mut buff = Cursor::new(Vec::new());
+    PngEncoder::new(&mut buff)
+        .write_image(
+            &bufferdata.frame_mmap.unwrap(),
+            bufferdata.width,
+            bufferdata.height,
+            image::ColorType::Rgba8,
+        )
+        .unwrap();
+    let image =
+        image::load_from_memory_with_format(buff.get_ref(), image::ImageFormat::Png).unwrap();
+    let pixel = image.get_pixel(0, 0);
+    println!(
+        "RGB: R:{}, G:{}, B:{}, A:{}",
+        pixel.0[0], pixel.0[1], pixel.0[2], pixel[3]
+    );
+    println!(
+        "16hex: #{:02x}{:02x}{:02x}{:02x}",
+        pixel.0[0], pixel.0[1], pixel.0[2], pixel[3]
+    );
+}
+
 //use std::io::{stdout, BufWriter};
 pub fn write_to_file(bufferdata: BufferData, usestdout: bool) {
     if usestdout {

@@ -84,17 +84,17 @@ impl AppData {
         None
     }
 
-    //fn get_pos_display_id(&self, pos: (i32, i32)) -> Option<usize> {
-    //    let (pos_x, pos_y) = pos;
-    //    for (i, ((width, height), (x, y))) in
-    //        zip(&self.display_logic_size, &self.display_postion).enumerate()
-    //    {
-    //        if pos_x >= *x && pos_x <= *x + *width && pos_y >= *y && pos_y <= *y + *height {
-    //            return Some(i);
-    //        }
-    //    }
-    //    None
-    //}
+    fn get_pos_display_id(&self, pos: (i32, i32)) -> Option<usize> {
+        let (pos_x, pos_y) = pos;
+        for (i, ((width, height), (x, y))) in
+            zip(&self.display_logic_size, &self.display_position).enumerate()
+        {
+            if pos_x >= *x && pos_x <= *x + *width && pos_y >= *y && pos_y <= *y + *height {
+                return Some(i);
+            }
+        }
+        None
+    }
 
     fn get_pos_display_ids(&self, pos: (i32, i32), size: (i32, i32)) -> Option<Vec<usize>> {
         let (start_x, start_y) = pos;
@@ -190,11 +190,11 @@ impl AppData {
                 ),
             ),
         ) {
-            println!("{}, {},", displayname, display_description);
-            println!("    Size: {},{}", x, y);
-            println!("    LogicSize: {}, {}", logic_x, logic_y);
-            println!("    Position: {}, {}", pos_x, pos_y);
-            println!("    Scale: {}", scale);
+            println!("{displayname}, {display_description}");
+            println!("    Size: {x},{y}");
+            println!("    LogicSize: {logic_x}, {logic_y}");
+            println!("    Position: {pos_x}, {pos_y}");
+            println!("    Scale: {scale}");
         }
     }
 }
@@ -348,6 +348,10 @@ enum ClapOption {
         height: i32,
         usestdout: bool,
     },
+    ShotWithColor {
+        pos_x: i32,
+        pos_y: i32,
+    },
 }
 
 enum SlurpParseResult {
@@ -462,6 +466,13 @@ fn main() {
                 .about("TakeScreenshot about whole screen"),
         )
         .subcommand(
+            Command::new("color")
+                .long_flag("color")
+                .short_flag('C')
+                .arg(arg!(<Point> ... "Pos by slurp"))
+                .about("Get Color of a point"),
+        )
+        .subcommand(
             Command::new("list_outputs")
                 .long_flag("list_outputs")
                 .short_flag('L')
@@ -514,6 +525,17 @@ fn main() {
                 tracing_subscriber::fmt::init();
             }
             take_screenshot(ClapOption::ShotWithFullScreen { usestdout });
+        }
+        Some(("color", submatchs)) => {
+            let posmessage = submatchs
+                .get_one::<String>("Point")
+                .expect("Need message")
+                .to_string();
+            let SlurpParseResult::Finished(pos_x, pos_y, _, _) = parseslurp(posmessage) else {
+                return;
+            };
+            tracing_subscriber::fmt().init();
+            take_screenshot(ClapOption::ShotWithColor { pos_x, pos_y })
         }
         #[cfg(feature = "gui")]
         Some(("gui", _)) => {
@@ -717,6 +739,28 @@ fn take_screenshot(option: ClapOption) {
                             tracing_subscriber::fmt().init();
                         }
                         tracing::error!("Cannot find screen");
+                    }
+                }
+            }
+            ClapOption::ShotWithColor { pos_x, pos_y } => {
+                let xdg_output_manager = state.xdg_output_manager.clone().unwrap();
+                for i in 0..state.displays.len() {
+                    xdg_output_manager.get_xdg_output(&state.displays[i], &qh, ());
+                    event_queue.roundtrip(&mut state).unwrap();
+                }
+                if let Some(id) = state.get_pos_display_id((pos_x, pos_y)) {
+                    let manager = state.wlr_screencopy.as_ref().unwrap();
+                    let shm = state.shm.clone().unwrap();
+                    if let Some(bufferdata) = wlrbackend::capture_output_frame(
+                        &conn,
+                        &state.displays[id],
+                        manager,
+                        &display,
+                        shm,
+                        (1, 1),
+                        Some((pos_x, pos_y, 1, 1)),
+                    ) {
+                        filewriter::get_color(bufferdata);
                     }
                 }
             }
