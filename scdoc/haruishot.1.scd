@@ -45,3 +45,11 @@ Screenshot for wlroots
 	haruhishot -O
 	haruhishot -O eDP-1
 	```
+
+*color (--color) (-C)
+	Get color
+
+	Examples:
+	```
+	haruhishot -C (slurp -p)
+	```

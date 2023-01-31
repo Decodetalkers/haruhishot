@@ -77,6 +77,18 @@ or
 haruhishot --output DP-2 --stdout > test.png
 ```
 
+Get Color
+
+```
+haruhishot -C (slurp -p)
+```
+
+or
+
+```
+haruhishot --color (slurp -p)
+```
+
 ## Features
 
 ### Notify Message
