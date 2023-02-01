@@ -46,7 +46,7 @@ Screenshot for wlroots
 	haruhishot -O eDP-1
 	```
 
-*color (--color) (-C)
+*color (--color) (-C)*
 	Get color
 
 	Examples:
