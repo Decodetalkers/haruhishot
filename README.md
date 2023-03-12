@@ -101,4 +101,4 @@ haruhishot --color (slurp -p)
 * ~~Real Fullscreen shot~~
 * In the code of wayshot, it seems need to make change if meet some format, but it works well on my computer, so..
 
-## Thanks to the help of developers in Simthay
+## Thanks to the help of developers in Smithay
