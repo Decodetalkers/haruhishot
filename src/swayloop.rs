@@ -30,7 +30,13 @@ use once_cell::sync::Lazy;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::thread;
-static CAN_EXIT: Lazy<Arc<Mutex<bool>>> = Lazy::new(|| Arc::new(Mutex::new(false)));
+#[derive(Debug)]
+pub enum SwayWindowSelect {
+    Waiting,
+    Select,
+    Finish,
+}
+pub static CAN_EXIT: Lazy<Arc<Mutex<SwayWindowSelect>>> = Lazy::new(|| Arc::new(Mutex::new(SwayWindowSelect::Waiting)));
 pub static FINAL_WINDOW: Lazy<Arc<Mutex<(i32, i32, i32, i32)>>> =
     Lazy::new(|| Arc::new(Mutex::new((0, 0, 0, 0))));
 
@@ -40,8 +46,9 @@ pub fn get_window() {
 
         let mut geometry = (0, 0, 0, 0);
         for event in swayipc::Connection::new().unwrap().subscribe(subs).unwrap() {
-            if let Ok(can_exit) = CAN_EXIT.lock() {
-                if *can_exit {
+            if let Ok(mut can_exit) = CAN_EXIT.lock() {
+                if let SwayWindowSelect::Select = *can_exit {
+                    *can_exit = SwayWindowSelect::Finish;
                     break;
                 }
             }
@@ -123,7 +130,7 @@ pub fn swaylayer() {
         }
     }
     let mut can_exit = CAN_EXIT.lock().unwrap();
-    *can_exit = true;
+    *can_exit = SwayWindowSelect::Select;
 }
 
 struct SimpleLayer {

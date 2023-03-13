@@ -898,8 +898,15 @@ fn take_screenshot(option: ClapOption) {
             ClapOption::ShotWindow => {
                 swayloop::get_window();
                 swayloop::swaylayer();
-                // wait for 10 ms for exit
-                std::thread::sleep(std::time::Duration::from_millis(10));
+                loop {
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                    if let Ok(can_exit) = swayloop::CAN_EXIT.lock() {
+                        if let swayloop::SwayWindowSelect::Finish = *can_exit {
+                            break;
+                        }
+                    }
+                }
+
                 if let Ok(window) = swayloop::FINAL_WINDOW.lock() {
                     let (pos_x, pos_y, width, height) = *window;
                     println!("{pos_x},{pos_y},{width}, {height}");
