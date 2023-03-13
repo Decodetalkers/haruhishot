@@ -20,6 +20,10 @@ if get_option('enable-gui')
   command += ['--features', 'gui']
 endif
 
+if get_option('enable-swayipc')
+  command += ['--features', 'sway']
+endif
+
 targetdir = 'debug'
 
 if not get_option('debug')
