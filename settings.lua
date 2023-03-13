@@ -5,7 +5,8 @@ return {
                 cargo = {
                     features = {
                         "notify",
-                        "gui"
+                        "gui",
+                        "sway"
                     }
                 }
             }

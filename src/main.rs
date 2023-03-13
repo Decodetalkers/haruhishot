@@ -22,6 +22,8 @@ mod constenv;
 mod filewriter;
 #[cfg(feature = "gui")]
 mod slintbackend;
+#[cfg(feature = "sway")]
+mod swayloop;
 mod wlrbackend;
 // This struct represents the state of our app. This simple app does not
 // need any state, by this type still supports the `Dispatch` implementations.
@@ -352,6 +354,8 @@ enum ClapOption {
         pos_x: i32,
         pos_y: i32,
     },
+    #[cfg(feature = "sway")]
+    ShotWindow,
 }
 
 enum SlurpParseResult {
@@ -484,6 +488,12 @@ fn main() {
             .long_flag("gui")
             .about("open gui selection"),
     );
+    #[cfg(feature = "sway")]
+    let command = command.subcommand(
+        Command::new("window")
+            .long_flag("window")
+            .about("select window"),
+    );
     let matches = command.get_matches();
     match matches.subcommand() {
         Some(("output", submatchs)) => {
@@ -542,6 +552,11 @@ fn main() {
             tracing_subscriber::fmt::init();
             take_screenshot(ClapOption::ShotWithGui);
             //slintbackend::selectgui();
+        }
+        #[cfg(feature = "sway")]
+        Some(("window", _)) => {
+            tracing_subscriber::fmt::init();
+            take_screenshot(ClapOption::ShotWindow);
         }
         _ => unimplemented!(),
     }
@@ -875,6 +890,41 @@ fn take_screenshot(option: ClapOption) {
                                 .icon(FAILED_IMAGE)
                                 .timeout(TIMEOUT)
                                 .show();
+                        }
+                    }
+                }
+            }
+            #[cfg(feature = "sway")]
+            ClapOption::ShotWindow => {
+                swayloop::get_window();
+                swayloop::swaylayer();
+                // wait for 10 ms for exit
+                std::thread::sleep(std::time::Duration::from_millis(10));
+                if let Ok(window) = swayloop::FINAL_WINDOW.lock() {
+                    let (pos_x, pos_y, width, height) = *window;
+                    println!("{pos_x},{pos_y},{width}, {height}");
+                    let xdg_output_manager = state.xdg_output_manager.clone().unwrap();
+                    for i in 0..state.displays.len() {
+                        xdg_output_manager.get_xdg_output(&state.displays[i], &qh, ());
+                        event_queue.roundtrip(&mut state).unwrap();
+                    }
+                    match state.get_pos_display_ids((pos_x, pos_y), (width, height)) {
+                        Some(ids) => {
+                            shotwithslurp(false, &state, ids, (pos_x, pos_y, width, height));
+                        }
+                        None => {
+                            tracing::error!("Pos is over the screen");
+                            #[cfg(feature = "notify")]
+                            {
+                                use crate::constenv::{FAILED_IMAGE, TIMEOUT};
+                                use notify_rust::Notification;
+                                let _ = Notification::new()
+                                    .summary("FileSavedFailed")
+                                    .body("Pos is over the screen")
+                                    .icon(FAILED_IMAGE)
+                                    .timeout(TIMEOUT)
+                                    .show();
+                            }
                         }
                     }
                 }
