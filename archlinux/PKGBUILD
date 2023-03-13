@@ -1,5 +1,5 @@
 pkgname=haruhishot
-pkgver=0.3.0
+pkgver=0.3.4
 pkgrel=1.0
 pkgdesc='One day Haruhi Suzumiya made a wlr screenshot tool'
 arch=('x86_64' 'aarch64')
@@ -16,6 +16,7 @@ build() {
     -Dbuildtype=release \
     -Denable-notify=true \
     -Denable-gui=true \
+    -Denable-swayipc=true \
     -Ddesktop-entry=true \
     build
   ninja -C build

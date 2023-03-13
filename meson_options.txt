@@ -1,4 +1,5 @@
 option('enable-notify', type: 'boolean', value: false, description: 'Enable notify feature')
 option('enable-gui', type: 'boolean', value: false, description: 'Enable gui feature')
+option('enable-swayipc', type: 'boolean', value: false, description: 'Enable swayipc feature')
 option('man-pages', type: 'boolean', value: true, description: 'Generate and install man pages')
 option('desktop-entry', type: 'boolean', value: true, description: 'Install desktop entry')
