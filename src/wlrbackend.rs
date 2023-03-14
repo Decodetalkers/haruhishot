@@ -272,6 +272,7 @@ pub fn capture_output_frame(
     (realwidth, realheight): (i32, i32),
     slurpoption: Option<(i32, i32, i32, i32)>,
 ) -> Option<BufferData> {
+    tracing::info!("windowinfo ==> width :{realwidth}, height: {realheight}");
     let mut event_queue = connection.new_event_queue();
     let qh = event_queue.handle();
     display.get_registry(&qh, ());
