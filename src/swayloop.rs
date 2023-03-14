@@ -36,7 +36,8 @@ pub enum SwayWindowSelect {
     Select,
     Finish,
 }
-pub static CAN_EXIT: Lazy<Arc<Mutex<SwayWindowSelect>>> = Lazy::new(|| Arc::new(Mutex::new(SwayWindowSelect::Waiting)));
+pub static CAN_EXIT: Lazy<Arc<Mutex<SwayWindowSelect>>> =
+    Lazy::new(|| Arc::new(Mutex::new(SwayWindowSelect::Waiting)));
 pub static FINAL_WINDOW: Lazy<Arc<Mutex<(i32, i32, i32, i32)>>> =
     Lazy::new(|| Arc::new(Mutex::new((0, 0, 0, 0))));
 
@@ -55,6 +56,13 @@ pub fn get_window() {
             if let Ok(swayipc::Event::Window(window)) = event {
                 let rect = window.container.rect;
                 geometry = (rect.x, rect.y, rect.width, rect.height);
+                tracing::info!(
+                    "window on x: {}, y: {}, width: {}, height: {}",
+                    rect.x,
+                    rect.y,
+                    rect.width,
+                    rect.height
+                );
             }
         }
         let mut final_window = FINAL_WINDOW.lock().unwrap();
@@ -245,7 +253,7 @@ impl SeatHandler for SimpleLayer {
         capability: Capability,
     ) {
         if capability == Capability::Keyboard && self.keyboard.is_none() {
-            println!("Set keyboard capability");
+            tracing::info!("Set keyboard capability");
             let keyboard = self
                 .seat_state
                 .get_keyboard(qh, &seat, None)
@@ -262,7 +270,7 @@ impl SeatHandler for SimpleLayer {
         capability: Capability,
     ) {
         if capability == Capability::Keyboard && self.keyboard.is_some() {
-            println!("Unset keyboard capability");
+            tracing::info!("Unset keyboard capability");
             self.keyboard.take().unwrap().release();
         }
     }
@@ -279,10 +287,9 @@ impl KeyboardHandler for SimpleLayer {
         surface: &wl_surface::WlSurface,
         _: u32,
         _: &[u32],
-        keysyms: &[u32],
+        _keysyms: &[u32],
     ) {
         if self.layer.wl_surface() == surface {
-            println!("Keyboard focus on window with pressed syms: {keysyms:?}");
             self.keyboard_focus = true;
         }
     }
@@ -296,7 +303,6 @@ impl KeyboardHandler for SimpleLayer {
         _: u32,
     ) {
         if self.layer.wl_surface() == surface {
-            println!("Release keyboard focus on window");
             self.keyboard_focus = false;
         }
     }
@@ -309,9 +315,9 @@ impl KeyboardHandler for SimpleLayer {
         _: u32,
         event: KeyEvent,
     ) {
-        println!("Key press: {event:?}");
         // press 'esc' to exit
         if event.keysym == keysyms::KEY_Escape {
+            tracing::info!("Exit");
             self.exit = true;
         }
     }
@@ -322,9 +328,8 @@ impl KeyboardHandler for SimpleLayer {
         _: &QueueHandle<Self>,
         _: &wl_keyboard::WlKeyboard,
         _: u32,
-        event: KeyEvent,
+        _event: KeyEvent,
     ) {
-        println!("Key release: {event:?}");
     }
 
     fn update_modifiers(
@@ -333,9 +338,8 @@ impl KeyboardHandler for SimpleLayer {
         _: &QueueHandle<Self>,
         _: &wl_keyboard::WlKeyboard,
         _serial: u32,
-        modifiers: Modifiers,
+        _modifiers: Modifiers,
     ) {
-        println!("Update modifiers: {modifiers:?}");
     }
 }
 
