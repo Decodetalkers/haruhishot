@@ -1,18 +1,18 @@
 import { Button, VerticalBox , HorizontalBox, GridBox, GroupBox, ListView} from "std-widgets.slint";
 
-export struct ScreenInfo := {
+export struct ScreenInfo {
     name: string,
     description: string
 }
 
-export global SelectSlots := {
+export global SelectSlots {
     callback useSlurp();
     callback selectScreen(int);
     callback useGlobal();
 }
 
-export AppWindow := Window {
-    property <[ScreenInfo]> infos: [];
+export component AppWindow inherits Window {
+    in property <[ScreenInfo]> infos: [];
     no-frame: true;
     width: 1000px;
     height: 700px;

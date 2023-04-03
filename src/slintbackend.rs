@@ -33,7 +33,7 @@ fn init_slots(ui: &AppWindow, sender: mpsc::Sender<SlintSelection>) {
 }
 
 pub fn selectgui(screen: Vec<String>, screeninfo: Vec<String>) -> SlintSelection {
-    let ui = AppWindow::new();
+    let ui = AppWindow::new().unwrap();
     ui.set_infos(
         Rc::new(VecModel::from(
             zip(screen, screeninfo)
@@ -48,7 +48,7 @@ pub fn selectgui(screen: Vec<String>, screeninfo: Vec<String>) -> SlintSelection
     );
     let (sender, receiver) = mpsc::channel();
     init_slots(&ui, sender);
-    ui.run();
+    ui.run().unwrap();
     if let Ok(message) = receiver.recv_timeout(std::time::Duration::from_nanos(300)) {
         message
     } else {
