@@ -37,7 +37,6 @@ pub fn selectgui(screen: Vec<String>, screeninfo: Vec<String>) -> SlintSelection
     ui.set_infos(
         Rc::new(VecModel::from(
             zip(screen, screeninfo)
-                .into_iter()
                 .map(|(screen, info)| ScreenInfo {
                     name: screen.into(),
                     description: info.into(),

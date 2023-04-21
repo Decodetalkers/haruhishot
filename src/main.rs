@@ -659,7 +659,7 @@ fn take_screenshot(option: ClapOption) {
                 let (pos_x, pos_y, width, height) =
                     state.get_real_pos((pos_x, pos_y), (width, height), id);
                 // INFO: sometime I get 0
-                if width ==0 || height == 0 {
+                if width == 0 || height == 0 {
                     continue;
                 }
                 let Some(bufferdata) = wlrbackend::capture_output_frame(

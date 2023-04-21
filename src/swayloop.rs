@@ -36,9 +36,12 @@ pub enum SwayWindowSelect {
     Select,
     Finish,
 }
+
+type WindowInfo = (i32, i32, i32, i32);
+
 pub static CAN_EXIT: Lazy<Arc<Mutex<SwayWindowSelect>>> =
     Lazy::new(|| Arc::new(Mutex::new(SwayWindowSelect::Waiting)));
-pub static FINAL_WINDOW: Lazy<Arc<Mutex<(i32, i32, i32, i32)>>> =
+pub static FINAL_WINDOW: Lazy<Arc<Mutex<WindowInfo>>> =
     Lazy::new(|| Arc::new(Mutex::new((0, 0, 0, 0))));
 
 pub fn get_window() {
