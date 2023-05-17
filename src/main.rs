@@ -153,7 +153,12 @@ impl AppData {
         }
     }
 
-    fn get_real_pos(&self, pos: (i32, i32), size: (i32, i32), id: usize) -> (i32, i32, i32, i32) {
+    fn get_real_pos_with_size(
+        &self,
+        pos: (i32, i32),
+        size: (i32, i32),
+        id: usize,
+    ) -> (i32, i32, i32, i32) {
         let (x, y) = pos;
         let (width, height) = size;
         let (end_x, end_y) = (x + width, y + height);
@@ -178,6 +183,14 @@ impl AppData {
         let pos_end_y = std::cmp::min(end_y, right_bottom_y);
         (pos_x, pos_y, pos_end_x - start_x, pos_end_y - start_y)
     }
+
+    fn get_real_pos(&self, (pos_x, pos_y): (i32, i32), id: usize) -> (i32, i32) {
+        (
+            pos_x - self.display_position[id].0,
+            pos_y - self.display_position[id].1,
+        )
+    }
+
     fn print_display_info(&self) {
         for (
             scale,
@@ -657,7 +670,7 @@ fn take_screenshot(option: ClapOption) {
             let mut bufferdatas = Vec::new();
             for id in ids {
                 let (pos_x, pos_y, width, height) =
-                    state.get_real_pos((pos_x, pos_y), (width, height), id);
+                    state.get_real_pos_with_size((pos_x, pos_y), (width, height), id);
                 // INFO: sometime I get 0
                 if width == 0 || height == 0 {
                     continue;
@@ -768,6 +781,7 @@ fn take_screenshot(option: ClapOption) {
                     event_queue.roundtrip(&mut state).unwrap();
                 }
                 if let Some(id) = state.get_pos_display_id((pos_x, pos_y)) {
+                    let (pos_x, pos_y) = state.get_real_pos((pos_x, pos_y), id);
                     let manager = state.wlr_screencopy.as_ref().unwrap();
                     let shm = state.shm.clone().unwrap();
                     if let Some(bufferdata) = wlrbackend::capture_output_frame(
