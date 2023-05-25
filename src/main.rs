@@ -609,7 +609,7 @@ fn take_screenshot(option: ClapOption) {
                     };
                 bufferdatas.push(bufferdata);
             }
-            filewriter::write_to_file_mutisource(bufferdatas, usestdout);
+            filewriter::write_to_file_mutisource_concat(bufferdatas, usestdout);
         };
         let shootchoosedscreen = |usestdout: bool, id: usize, state: &AppData| {
             let manager = state.wlr_screencopy.as_ref().unwrap();
