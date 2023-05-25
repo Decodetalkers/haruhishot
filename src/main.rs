@@ -153,37 +153,6 @@ impl AppData {
         }
     }
 
-    fn get_real_pos_with_size(
-        &self,
-        pos: (i32, i32),
-        size: (i32, i32),
-        id: usize,
-    ) -> (i32, i32, i32, i32) {
-        let (x, y) = pos;
-        let (width, height) = size;
-        let (end_x, end_y) = (x + width, y + height);
-        let (right_bottom_x, right_bottom_y) = (
-            self.display_position[id].0 + self.display_logic_size[id].0,
-            self.display_position[id].1 + self.display_logic_size[id].1,
-        );
-        let pos_x = if x - self.display_position[id].0 >= 0 {
-            x - self.display_position[id].0
-        } else {
-            0
-        };
-        let pos_y = if y - self.display_position[id].1 >= 0 {
-            y - self.display_position[id].1
-        } else {
-            0
-        };
-
-        let start_x = std::cmp::max(x, self.display_position[id].0);
-        let start_y = std::cmp::max(y, self.display_position[id].1);
-        let pos_end_x = std::cmp::min(end_x, right_bottom_x);
-        let pos_end_y = std::cmp::min(end_y, right_bottom_y);
-        (pos_x, pos_y, pos_end_x - start_x, pos_end_y - start_y)
-    }
-
     fn get_real_pos(&self, (pos_x, pos_y): (i32, i32), id: usize) -> (i32, i32) {
         (
             pos_x - self.display_position[id].0,
@@ -669,8 +638,7 @@ fn take_screenshot(option: ClapOption) {
             let shm = state.shm.clone().unwrap();
             let mut bufferdatas = Vec::new();
             for id in ids {
-                let (pos_x, pos_y, width, height) =
-                    state.get_real_pos_with_size((pos_x, pos_y), (width, height), id);
+                let (pos_x, pos_y) = state.get_real_pos((pos_x, pos_y), id);
                 // INFO: sometime I get 0
                 if width == 0 || height == 0 {
                     continue;
@@ -682,7 +650,7 @@ fn take_screenshot(option: ClapOption) {
                     &display,
                     shm.clone(),
                     (width, height),
-                    Some((pos_x, pos_y, width,height)),
+                    Some((pos_x, pos_y, width, height)),
                 ) else {
                     if usestdout {
                         tracing_subscriber::fmt().init();

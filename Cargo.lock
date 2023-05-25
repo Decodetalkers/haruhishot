@@ -1485,7 +1485,7 @@ dependencies = [
 
 [[package]]
 name = "haruhishot"
-version = "0.3.6"
+version = "0.3.7"
 dependencies = [
  "clap",
  "dialoguer",
