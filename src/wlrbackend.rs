@@ -1,6 +1,6 @@
 use wayland_client::protocol::wl_buffer::WlBuffer;
 use wayland_client::protocol::wl_display::WlDisplay;
-use wayland_client::protocol::wl_output::WlOutput;
+use wayland_client::protocol::wl_output::{self, WlOutput};
 use wayland_client::protocol::wl_shm::{self, WlShm};
 use wayland_client::protocol::wl_shm_pool::WlShmPool;
 use wayland_client::{protocol::wl_registry, QueueHandle};
@@ -109,6 +109,7 @@ pub struct BufferData {
     pub height: u32,
     pub realwidth: i32,
     pub realheight: i32,
+    pub transform: wl_output::Transform,
     //pub stride: u32,
     shm: WlShm,
     pub frame_mmap: Option<MmapMut>,
@@ -116,13 +117,18 @@ pub struct BufferData {
 }
 
 impl BufferData {
-    fn new(shm: WlShm, (realwidth, realheight): (i32, i32)) -> Self {
+    fn new(
+        shm: WlShm,
+        (realwidth, realheight): (i32, i32),
+        transform: wl_output::Transform,
+    ) -> Self {
         BufferData {
             //buffer: None,
             width: 0,
             height: 0,
             realheight,
             realwidth,
+            transform,
             // stride: 0,
             shm,
             frame_mmap: None,
@@ -263,6 +269,7 @@ impl Dispatch<ZwlrScreencopyFrameV1, ()> for BufferData {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn capture_output_frame(
     connection: &Connection,
     output: &WlOutput,
@@ -270,13 +277,14 @@ pub fn capture_output_frame(
     display: &WlDisplay,
     shm: wl_shm::WlShm,
     (realwidth, realheight): (i32, i32),
+    transform: wl_output::Transform,
     slurpoption: Option<(i32, i32, i32, i32)>,
 ) -> Option<BufferData> {
     tracing::info!("windowinfo ==> width :{realwidth}, height: {realheight}");
     let mut event_queue = connection.new_event_queue();
     let qh = event_queue.handle();
     display.get_registry(&qh, ());
-    let mut framesate = BufferData::new(shm, (realwidth, realheight));
+    let mut framesate = BufferData::new(shm, (realwidth, realheight), transform);
     match slurpoption {
         None => {
             manager.capture_output(0, output, &qh, ());

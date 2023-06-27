@@ -1,7 +1,7 @@
-use image::{codecs::png::PngEncoder, ImageEncoder};
-use image::GenericImageView;
+use image::{codecs::png::PngEncoder, GenericImageView, ImageBuffer, ImageEncoder, Pixel};
 #[cfg(feature = "notify")]
 use notify_rust::Notification;
+use wayland_client::protocol::wl_output;
 
 use crate::constenv::SAVEPATH;
 #[cfg(feature = "notify")]
@@ -150,6 +150,51 @@ pub fn write_to_file(bufferdata: BufferData, usestdout: bool) {
     }
 }
 
+pub fn roate_image<I: GenericImageView>(
+    image: &I,
+    transform: wl_output::Transform,
+    width: u32,
+    height: u32,
+) -> ImageBuffer<I::Pixel, Vec<<I::Pixel as Pixel>::Subpixel>>
+where
+    I::Pixel: 'static,
+    <I::Pixel as Pixel>::Subpixel: 'static,
+{
+    match transform {
+        wl_output::Transform::_90 => {
+            let image = image::imageops::rotate90(image);
+            image::imageops::resize(&image, width, height, image::imageops::FilterType::Gaussian)
+        }
+        wl_output::Transform::_180 => {
+            let image = image::imageops::rotate180(image);
+            image::imageops::resize(&image, width, height, image::imageops::FilterType::Gaussian)
+        }
+        wl_output::Transform::_270 => {
+            let image = image::imageops::rotate270(image);
+            image::imageops::resize(&image, width, height, image::imageops::FilterType::Gaussian)
+        }
+        wl_output::Transform::Flipped => {
+            let image = image::imageops::flip_horizontal(image);
+            image::imageops::resize(&image, width, height, image::imageops::FilterType::Gaussian)
+        }
+        wl_output::Transform::Flipped90 => {
+            let filp = image::imageops::flip_horizontal(image);
+            let image = image::imageops::rotate90(&filp);
+            image::imageops::resize(&image, width, height, image::imageops::FilterType::Gaussian)
+        }
+        wl_output::Transform::Flipped180 => {
+            let filp = image::imageops::flip_horizontal(image);
+            let image = image::imageops::rotate180(&filp);
+            image::imageops::resize(&image, width, height, image::imageops::FilterType::Gaussian)
+        }
+        wl_output::Transform::Flipped270 => {
+            let filp = image::imageops::flip_horizontal(image);
+            let image = image::imageops::rotate270(&filp);
+            image::imageops::resize(&image, width, height, image::imageops::FilterType::Gaussian)
+        }
+        _ => image::imageops::resize(image, width, height, image::imageops::FilterType::Gaussian),
+    }
+}
 pub fn write_to_file_mutisource(bufferdatas: Vec<BufferData>, usestdout: bool) {
     let mut images = Vec::new();
     for buffer in bufferdatas {
@@ -164,11 +209,13 @@ pub fn write_to_file_mutisource(bufferdatas: Vec<BufferData>, usestdout: bool) {
             .unwrap();
         let image =
             image::load_from_memory_with_format(buff.get_ref(), image::ImageFormat::Png).unwrap();
-        let image = image::imageops::resize(
+
+        //let image = roate_image(&image, buffer.transform);
+        let image = roate_image(
             &image,
+            buffer.transform,
             buffer.realwidth as u32,
             buffer.realheight as u32,
-            image::imageops::FilterType::Gaussian,
         );
         images.push(image);
     }

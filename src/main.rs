@@ -1,9 +1,9 @@
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::FuzzySelect;
-use wayland_client::protocol::wl_output::{self, WlOutput};
+use wayland_client::protocol::wl_output::{self, Transform, WlOutput};
 use wayland_client::protocol::wl_shm::WlShm;
-use wayland_client::Proxy;
 use wayland_client::{protocol::wl_registry, Connection, Dispatch, QueueHandle};
+use wayland_client::{Proxy, WEnum};
 
 use wayland_protocols::xdg::xdg_output::zv1::client::zxdg_output_manager_v1::ZxdgOutputManagerV1;
 use wayland_protocols::xdg::xdg_output::zv1::client::zxdg_output_v1::{self, ZxdgOutputV1};
@@ -35,6 +35,7 @@ struct AppData {
     display_position: Vec<(i32, i32)>,
     display_scale: Vec<i32>,
     display_logic_size: Vec<(i32, i32)>,
+    display_transform: Vec<Transform>,
     pub shm: Option<WlShm>,
     pub wlr_screencopy: Option<ZwlrScreencopyManagerV1>,
     pub xdg_output_manager: Option<ZxdgOutputManagerV1>,
@@ -50,6 +51,7 @@ impl AppData {
             display_position: Vec::new(),
             display_scale: Vec::new(),
             display_logic_size: Vec::new(),
+            display_transform: Vec::new(),
             shm: None,
             wlr_screencopy: None,
             xdg_output_manager: None,
@@ -272,6 +274,12 @@ impl Dispatch<WlOutput, ()> for AppData {
             }
             wl_output::Event::Scale { factor } => {
                 state.display_scale.push(factor);
+            }
+            wl_output::Event::Geometry {
+                transform: WEnum::Value(transform),
+                ..
+            } => {
+                state.display_transform.push(transform);
             }
             _ => {}
         }
@@ -606,6 +614,7 @@ fn take_screenshot(option: ClapOption) {
                 &display,
                 shm,
                 state.display_logic_size[id],
+                state.display_transform[id],
                 None,
             );
             match bufferdata {
@@ -636,6 +645,7 @@ fn take_screenshot(option: ClapOption) {
                         &display,
                         shm.clone(),
                         (width, height),
+                        state.display_transform[id],
                         Some((pos_x, pos_y, width, height)),
                     ) else {
                         if usestdout {
@@ -751,6 +761,7 @@ fn take_screenshot(option: ClapOption) {
                         &display,
                         shm,
                         (1, 1),
+                        wl_output::Transform::Normal,
                         Some((pos_x, pos_y, 1, 1)),
                     ) {
                         filewriter::get_color(bufferdata);
