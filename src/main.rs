@@ -630,31 +630,31 @@ fn take_screenshot(option: ClapOption) {
                         continue;
                     }
                     let Some(bufferdata) = wlrbackend::capture_output_frame(
-                    &conn,
-                    &state.displays[id],
-                    manager,
-                    &display,
-                    shm.clone(),
-                    (width, height),
-                    Some((pos_x, pos_y, width, height)),
-                ) else {
-                    if usestdout {
-                        tracing_subscriber::fmt().init();
-                    }
-                    tracing::error!("Cannot get frame from screen: {} ",  state.display_names[id]);
-                    #[cfg(feature = "notify")]
-                    {
-                        use crate::constenv::{FAILED_IMAGE, TIMEOUT};
-                        use notify_rust::Notification;
-                        let _ = Notification::new()
-                            .summary("FileSavedFailed")
-                            .body(&format!("Cannot get frame from screen: {}", state.display_names[id]))
-                            .icon(FAILED_IMAGE)
-                            .timeout(TIMEOUT)
-                            .show();
-                    }
-                    return;
-                };
+                        &conn,
+                        &state.displays[id],
+                        manager,
+                        &display,
+                        shm.clone(),
+                        (width, height),
+                        Some((pos_x, pos_y, width, height)),
+                    ) else {
+                        if usestdout {
+                            tracing_subscriber::fmt().init();
+                        }
+                        tracing::error!("Cannot get frame from screen: {} ",  state.display_names[id]);
+                        #[cfg(feature = "notify")]
+                        {
+                            use crate::constenv::{FAILED_IMAGE, TIMEOUT};
+                            use notify_rust::Notification;
+                            let _ = Notification::new()
+                                .summary("FileSavedFailed")
+                                .body(&format!("Cannot get frame from screen: {}", state.display_names[id]))
+                                .icon(FAILED_IMAGE)
+                                .timeout(TIMEOUT)
+                                .show();
+                        }
+                        return;
+                    };
                     bufferdatas.push(bufferdata);
                 }
                 filewriter::write_to_file_mutisource(bufferdatas, usestdout);
