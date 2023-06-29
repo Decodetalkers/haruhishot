@@ -230,6 +230,7 @@ impl Dispatch<ZwlrScreencopyFrameV1, ()> for HarihiShotState {
 }
 
 impl HarihiShotState {
+
     #[inline]
     fn finished(&self) -> bool {
         matches!(
@@ -285,13 +286,9 @@ impl HarihiShotState {
                     .copied();
                 let frame_format = frameformat.as_ref().unwrap();
                 let frame_bytes = frame_format.stride * frame_format.height;
-                let mem_fd = create_shm_fd().map_err(|_| {
-                    HarihiError::QueueError("Error During create shm fd".to_string())
-                })?;
+                let mem_fd = create_shm_fd()?;
                 let mem_file = unsafe { File::from_raw_fd(mem_fd) };
-                mem_file.set_len(frame_bytes as u64).map_err(|_| {
-                    HarihiError::QueueError("Cannot set len for mem_file".to_string())
-                })?;
+                mem_file.set_len(frame_bytes as u64)?;
 
                 let shm_pool =
                     self.shm
@@ -311,11 +308,7 @@ impl HarihiShotState {
                 frame.copy(&buffer);
 
                 // TODO:maybe need some adjust
-                frame_mmap = Some(unsafe {
-                    MmapMut::map_mut(&mem_file).map_err(|_| {
-                        HarihiError::QueueError("Error during get MmapMut".to_string())
-                    })?
-                });
+                frame_mmap = Some(unsafe { MmapMut::map_mut(&mem_file)? });
             }
         }
         match self.wlr_copy_state_info.state {
