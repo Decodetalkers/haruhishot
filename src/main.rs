@@ -1,6 +1,6 @@
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::FuzzySelect;
-use wayland_client::protocol::wl_output;
+use libharuhishot::reexport::wl_output;
 
 use clap::{arg, Arg, ArgAction, Command};
 

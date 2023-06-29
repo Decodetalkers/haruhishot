@@ -1,7 +1,7 @@
 use image::{codecs::png::PngEncoder, GenericImageView, ImageBuffer, ImageEncoder, Pixel};
+use libharuhishot::reexport::wl_output;
 #[cfg(feature = "notify")]
 use notify_rust::Notification;
-use wayland_client::protocol::wl_output;
 
 use crate::constenv::SAVEPATH;
 #[cfg(feature = "notify")]
