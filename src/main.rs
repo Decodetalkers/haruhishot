@@ -3,9 +3,7 @@ use dialoguer::FuzzySelect;
 use wayland_client::protocol::wl_output;
 use wayland_client::Connection;
 
-
 use clap::{arg, Arg, ArgAction, Command};
-
 
 mod constenv;
 mod filewriter;
@@ -19,7 +17,6 @@ mod wlrcaptruestate;
 use wlrcaptruestate::AppData;
 // This struct represents the state of our app. This simple app does not
 // need any state, by this type still supports the `Dispatch` implementations.
-
 
 enum ClapOption {
     ShowInfo,
@@ -283,33 +280,36 @@ fn take_screenshot(option: ClapOption) {
     if state.is_ready() {
         tracing::info!("All data is ready");
 
-        let shoot_choosed_screen = |usestdout: bool, id: usize, state: &AppData| {
-            let manager = state.wlr_screencopy.as_ref().unwrap();
-            let shm = state.shm.clone().unwrap();
-            let bufferdata = wlrbackend::capture_output_frame(
-                &conn,
-                &state.displays[id],
-                manager,
-                &display,
-                shm,
-                state.display_logic_size[id],
-                state.display_transform[id],
-                None,
-            );
-            match bufferdata {
-                Some(data) => filewriter::write_to_file(data, usestdout),
-                None => tracing::error!("Nothing get, check the log"),
-            }
-        };
+        let xdg_output_manager = state.xdg_output_manager.clone().unwrap();
+        for i in 0..state.displays.len() {
+            xdg_output_manager.get_xdg_output(&state.displays[i], &qh, ());
+            event_queue.roundtrip(&mut state).unwrap();
+        }
+        let shoot_choosed_screen =
+            |usestdout: bool,
+             id: usize,
+             state: &mut AppData,
+             event_queue: &mut wayland_client::EventQueue<AppData>| {
+                let bufferdata = state.capture_output_frame(
+                    &state.displays[id].clone(),
+                    event_queue,
+                    state.display_logic_size[id],
+                    state.display_transform[id],
+                    None,
+                );
+                match bufferdata {
+                    Some(data) => filewriter::write_to_file(data, usestdout),
+                    None => tracing::error!("Nothing get, check the log"),
+                }
+            };
 
         let shot_with_regions =
             |usestdout: bool,
-             state: &AppData,
+             state: &mut AppData,
              ids: Vec<usize>,
-             posinformation: (i32, i32, i32, i32)| {
+             posinformation: (i32, i32, i32, i32),
+             event_queue: &mut wayland_client::EventQueue<AppData>| {
                 let (pos_x, pos_y, width, height) = posinformation;
-                let manager = state.wlr_screencopy.as_ref().unwrap();
-                let shm = state.shm.clone().unwrap();
                 let mut bufferdatas = Vec::new();
                 for id in ids {
                     let (pos_x, pos_y) = state.get_real_pos((pos_x, pos_y), id);
@@ -317,12 +317,9 @@ fn take_screenshot(option: ClapOption) {
                     if width == 0 || height == 0 {
                         continue;
                     }
-                    let Some(bufferdata) = wlrbackend::capture_output_frame(
-                        &conn,
-                        &state.displays[id],
-                        manager,
-                        &display,
-                        shm.clone(),
+                    let Some(bufferdata) = state.capture_output_frame(
+                        &state.displays[id].clone(),
+                        event_queue,
                         (width, height),
                         state.display_transform[id],
                         Some((pos_x, pos_y, width, height)),
@@ -351,18 +348,9 @@ fn take_screenshot(option: ClapOption) {
         //
         match option {
             ClapOption::ShotWithFullScreen { usestdout } => {
-                let xdg_output_manager = state.xdg_output_manager.clone().unwrap();
-                for i in 0..state.displays.len() {
-                    xdg_output_manager.get_xdg_output(&state.displays[i], &qh, ());
-                    event_queue.roundtrip(&mut state).unwrap();
-                }
+                let region = state.get_whole_screens_pos_and_region();
                 let allscreens: Vec<usize> = (0..state.displays.len()).collect();
-                shot_with_regions(
-                    usestdout,
-                    &state,
-                    allscreens,
-                    state.get_whole_screens_pos_and_region(),
-                );
+                shot_with_regions(usestdout, &mut state, allscreens, region, &mut event_queue);
             }
             ClapOption::ShotWithCoosedScreen { screen, usestdout } => {
                 let screen = match screen {
@@ -397,12 +385,7 @@ fn take_screenshot(option: ClapOption) {
                 };
                 match state.get_select_id(screen) {
                     Some(id) => {
-                        let xdg_output_manager = state.xdg_output_manager.clone().unwrap();
-                        for i in 0..state.displays.len() {
-                            xdg_output_manager.get_xdg_output(&state.displays[i], &qh, ());
-                            event_queue.roundtrip(&mut state).unwrap();
-                        }
-                        shoot_choosed_screen(usestdout, id, &state);
+                        shoot_choosed_screen(usestdout, id, &mut state, &mut event_queue);
                     }
                     None => {
                         #[cfg(feature = "notify")]
@@ -424,21 +407,11 @@ fn take_screenshot(option: ClapOption) {
                 }
             }
             ClapOption::ShotWithColor { pos_x, pos_y } => {
-                let xdg_output_manager = state.xdg_output_manager.clone().unwrap();
-                for i in 0..state.displays.len() {
-                    xdg_output_manager.get_xdg_output(&state.displays[i], &qh, ());
-                    event_queue.roundtrip(&mut state).unwrap();
-                }
                 if let Some(id) = state.get_pos_display_id((pos_x, pos_y)) {
                     let (pos_x, pos_y) = state.get_real_pos((pos_x, pos_y), id);
-                    let manager = state.wlr_screencopy.as_ref().unwrap();
-                    let shm = state.shm.clone().unwrap();
-                    if let Some(bufferdata) = wlrbackend::capture_output_frame(
-                        &conn,
-                        &state.displays[id],
-                        manager,
-                        &display,
-                        shm,
+                    if let Some(bufferdata) = state.capture_output_frame(
+                        &state.displays[id].clone(),
+                        &mut event_queue,
                         (1, 1),
                         wl_output::Transform::Normal,
                         Some((pos_x, pos_y, 1, 1)),
@@ -448,35 +421,21 @@ fn take_screenshot(option: ClapOption) {
                 }
             }
             ClapOption::ShowInfo => {
-                let xdg_output_manager = state.xdg_output_manager.clone().unwrap();
-                for i in 0..state.displays.len() {
-                    xdg_output_manager.get_xdg_output(&state.displays[i], &qh, ());
-                    event_queue.roundtrip(&mut state).unwrap();
-                }
                 state.print_display_info();
             }
             #[cfg(feature = "gui")]
             ClapOption::ShotWithGui => {
-                let xdg_output_manager = state.xdg_output_manager.clone().unwrap();
-                for i in 0..state.displays.len() {
-                    xdg_output_manager.get_xdg_output(&state.displays[i], &qh, ());
-                    event_queue.roundtrip(&mut state).unwrap();
-                }
                 match slintbackend::selectgui(
                     state.display_names.clone(),
                     state.display_description.clone(),
                 ) {
                     slintbackend::SlintSelection::GlobalScreen => {
+                        let region = state.get_whole_screens_pos_and_region();
                         let allscreens: Vec<usize> = (0..state.displays.len()).collect();
-                        shot_with_regions(
-                            false,
-                            &state,
-                            allscreens,
-                            state.get_whole_screens_pos_and_region(),
-                        );
+                        shot_with_regions(false, &mut state, allscreens, region, &mut event_queue);
                     }
                     slintbackend::SlintSelection::Selection(index) => {
-                        shoot_choosed_screen(false, index as usize, &state);
+                        shoot_choosed_screen(false, index as usize, &mut state, &mut event_queue);
                     }
                     slintbackend::SlintSelection::Slurp => {
                         let Ok(output) = std::process::Command::new("slurp")
@@ -505,9 +464,10 @@ fn take_screenshot(option: ClapOption) {
                             Some(ids) => {
                                 shot_with_regions(
                                     false,
-                                    &state,
+                                    &mut state,
                                     ids,
                                     (pos_x, pos_y, width, height),
+                                    &mut event_queue,
                                 );
                             }
                             None => {
@@ -547,32 +507,31 @@ fn take_screenshot(option: ClapOption) {
                 width,
                 height,
                 usestdout,
-            } => {
-                let xdg_output_manager = state.xdg_output_manager.clone().unwrap();
-                for i in 0..state.displays.len() {
-                    xdg_output_manager.get_xdg_output(&state.displays[i], &qh, ());
-                    event_queue.roundtrip(&mut state).unwrap();
+            } => match state.get_pos_display_ids((pos_x, pos_y), (width, height)) {
+                Some(ids) => {
+                    shot_with_regions(
+                        usestdout,
+                        &mut state,
+                        ids,
+                        (pos_x, pos_y, width, height),
+                        &mut event_queue,
+                    );
                 }
-                match state.get_pos_display_ids((pos_x, pos_y), (width, height)) {
-                    Some(ids) => {
-                        shot_with_regions(usestdout, &state, ids, (pos_x, pos_y, width, height));
-                    }
-                    None => {
-                        tracing::error!("Pos is over the screen");
-                        #[cfg(feature = "notify")]
-                        {
-                            use crate::constenv::{FAILED_IMAGE, TIMEOUT};
-                            use notify_rust::Notification;
-                            let _ = Notification::new()
-                                .summary("FileSavedFailed")
-                                .body("Pos is over the screen")
-                                .icon(FAILED_IMAGE)
-                                .timeout(TIMEOUT)
-                                .show();
-                        }
+                None => {
+                    tracing::error!("Pos is over the screen");
+                    #[cfg(feature = "notify")]
+                    {
+                        use crate::constenv::{FAILED_IMAGE, TIMEOUT};
+                        use notify_rust::Notification;
+                        let _ = Notification::new()
+                            .summary("FileSavedFailed")
+                            .body("Pos is over the screen")
+                            .icon(FAILED_IMAGE)
+                            .timeout(TIMEOUT)
+                            .show();
                     }
                 }
-            }
+            },
             #[cfg(feature = "sway")]
             ClapOption::ShotWindow => {
                 swayloop::get_window();
@@ -589,14 +548,15 @@ fn take_screenshot(option: ClapOption) {
                 if let Ok(window) = swayloop::FINAL_WINDOW.lock() {
                     let (pos_x, pos_y, width, height) = *window;
                     println!("{pos_x},{pos_y},{width}, {height}");
-                    let xdg_output_manager = state.xdg_output_manager.clone().unwrap();
-                    for i in 0..state.displays.len() {
-                        xdg_output_manager.get_xdg_output(&state.displays[i], &qh, ());
-                        event_queue.roundtrip(&mut state).unwrap();
-                    }
                     match state.get_pos_display_ids((pos_x, pos_y), (width, height)) {
                         Some(ids) => {
-                            shot_with_regions(false, &state, ids, (pos_x, pos_y, width, height));
+                            shot_with_regions(
+                                false,
+                                &mut state,
+                                ids,
+                                (pos_x, pos_y, width, height),
+                                &mut event_queue,
+                            );
                         }
                         None => {
                             tracing::error!("Pos is over the screen");
