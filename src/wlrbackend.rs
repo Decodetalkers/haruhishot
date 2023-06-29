@@ -1,13 +1,11 @@
 use wayland_client::protocol::wl_buffer::WlBuffer;
-use wayland_client::protocol::wl_display::WlDisplay;
 use wayland_client::protocol::wl_output::{self, WlOutput};
-use wayland_client::protocol::wl_shm::{self, WlShm};
+use wayland_client::protocol::wl_shm::{self, Format};
 use wayland_client::protocol::wl_shm_pool::WlShmPool;
-use wayland_client::{protocol::wl_registry, QueueHandle};
-use wayland_client::{Connection, Dispatch, WEnum};
+use wayland_client::QueueHandle;
+use wayland_client::{Connection, Dispatch, EventQueue, WEnum};
 use wayland_protocols_wlr::screencopy::v1::client::zwlr_screencopy_frame_v1;
 use wayland_protocols_wlr::screencopy::v1::client::zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1;
-use wayland_protocols_wlr::screencopy::v1::client::zwlr_screencopy_manager_v1::ZwlrScreencopyManagerV1;
 
 use std::error::Error;
 use std::os::fd::FromRawFd;
@@ -26,11 +24,30 @@ use nix::{
 
 use memmap2::MmapMut;
 
+use crate::wlrcaptruestate::AppData;
+
 #[derive(Debug)]
-enum ScreenCopyState {
+pub enum ScreenCopyState {
     Staging,
+    Pedding,
     Finished,
     Failed,
+}
+
+pub struct FrameInfo {
+    pub frameformat: FrameFormat,
+    pub frame_mmap: MmapMut,
+    pub transform: wl_output::Transform,
+    pub realwidth: u32,
+    pub realheight: u32,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct FrameFormat {
+    pub format: Format,
+    pub width: u32,
+    pub height: u32,
+    pub stride: u32,
 }
 /// capture_output_frame.
 fn create_shm_fd() -> std::io::Result<RawFd> {
@@ -102,61 +119,7 @@ fn create_shm_fd() -> std::io::Result<RawFd> {
     }
 }
 
-#[derive(Debug)]
-pub struct BufferData {
-    //pub buffer: Option<WlBuffer>,
-    pub width: u32,
-    pub height: u32,
-    pub realwidth: i32,
-    pub realheight: i32,
-    pub transform: wl_output::Transform,
-    //pub stride: u32,
-    shm: WlShm,
-    pub frame_mmap: Option<MmapMut>,
-    state: ScreenCopyState,
-}
-
-impl BufferData {
-    fn new(
-        shm: WlShm,
-        (realwidth, realheight): (i32, i32),
-        transform: wl_output::Transform,
-    ) -> Self {
-        BufferData {
-            //buffer: None,
-            width: 0,
-            height: 0,
-            realheight,
-            realwidth,
-            transform,
-            // stride: 0,
-            shm,
-            frame_mmap: None,
-            state: ScreenCopyState::Staging,
-        }
-    }
-    #[inline]
-    fn finished(&self) -> bool {
-        matches!(
-            self.state,
-            ScreenCopyState::Failed | ScreenCopyState::Finished
-        )
-    }
-}
-
-impl Dispatch<wl_registry::WlRegistry, ()> for BufferData {
-    fn event(
-        _state: &mut Self,
-        _proxy: &wl_registry::WlRegistry,
-        _event: <wl_registry::WlRegistry as wayland_client::Proxy>::Event,
-        _data: &(),
-        _conn: &Connection,
-        _qhandle: &QueueHandle<Self>,
-    ) {
-    }
-}
-
-impl Dispatch<WlBuffer, ()> for BufferData {
+impl Dispatch<WlBuffer, ()> for AppData {
     fn event(
         _state: &mut Self,
         _proxy: &WlBuffer,
@@ -168,7 +131,7 @@ impl Dispatch<WlBuffer, ()> for BufferData {
     }
 }
 
-impl Dispatch<WlShmPool, ()> for BufferData {
+impl Dispatch<WlShmPool, ()> for AppData {
     fn event(
         _state: &mut Self,
         _proxy: &WlShmPool,
@@ -180,14 +143,14 @@ impl Dispatch<WlShmPool, ()> for BufferData {
     }
 }
 
-impl Dispatch<ZwlrScreencopyFrameV1, ()> for BufferData {
+impl Dispatch<ZwlrScreencopyFrameV1, ()> for AppData {
     fn event(
         state: &mut Self,
-        proxy: &ZwlrScreencopyFrameV1,
+        _proxy: &ZwlrScreencopyFrameV1,
         event: <ZwlrScreencopyFrameV1 as wayland_client::Proxy>::Event,
         _data: &(),
         _conn: &wayland_client::Connection,
-        qh: &wayland_client::QueueHandle<Self>,
+        _qh: &wayland_client::QueueHandle<Self>,
     ) {
         match event {
             zwlr_screencopy_frame_v1::Event::Ready {
@@ -216,33 +179,14 @@ impl Dispatch<ZwlrScreencopyFrameV1, ()> for BufferData {
                     }
                 };
                 tracing::info!("Format is {:?}", format);
-                state.width = width;
-                state.height = height;
-                //state.stride = stride;
-                let frame_bytes = stride * height;
-                let mut state_result = || {
-                    let mem_fd = create_shm_fd()?;
-                    let mem_file = unsafe {
-                        File::from_raw_fd(mem_fd)
-                    };
-                    mem_file.set_len(frame_bytes as u64)?;
-
-                    let shm_pool = state.shm.create_pool(mem_fd, frame_bytes as i32, qh, ());
-                    let buffer =
-                        shm_pool.create_buffer(0, width as i32, height as i32, stride as i32, format, qh, ());
-                    proxy.copy(&buffer);
-
-                    // TODO:maybe need some adjust
-                    state.frame_mmap = Some(unsafe {
-                        MmapMut::map_mut(&mem_file)?
-                    });
-                    Ok::<(), Box<dyn Error>>(())
-                };
-                if let Err(e) = state_result() {
-                    tracing::error!("Something error: {e}");
-                    state.state = ScreenCopyState::Failed;
-                }
-                // buffer done
+                state.formats.push(FrameFormat {
+                    format,
+                    width,
+                    height,
+                    stride,
+                });
+                state.state = ScreenCopyState::Pedding;
+                    // buffer done
             }
             zwlr_screencopy_frame_v1::Event::LinuxDmabuf {
                 ..
@@ -269,43 +213,111 @@ impl Dispatch<ZwlrScreencopyFrameV1, ()> for BufferData {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-pub fn capture_output_frame(
-    connection: &Connection,
-    output: &WlOutput,
-    manager: &ZwlrScreencopyManagerV1,
-    display: &WlDisplay,
-    shm: wl_shm::WlShm,
-    (realwidth, realheight): (i32, i32),
-    transform: wl_output::Transform,
-    slurpoption: Option<(i32, i32, i32, i32)>,
-) -> Option<BufferData> {
-    tracing::info!("windowinfo ==> width :{realwidth}, height: {realheight}");
-    let mut event_queue = connection.new_event_queue();
-    let qh = event_queue.handle();
-    display.get_registry(&qh, ());
-    let mut framesate = BufferData::new(shm, (realwidth, realheight), transform);
-    match slurpoption {
-        None => {
-            manager.capture_output(0, output, &qh, ());
-        }
-        Some((x, y, width, height)) => {
-            manager.capture_output_region(0, output, x, y, width, height, &qh, ());
-        }
+impl AppData {
+    #[inline]
+    fn finished(&self) -> bool {
+        matches!(
+            self.state,
+            ScreenCopyState::Failed | ScreenCopyState::Finished
+        )
     }
-    //event_queue.roundtrip(&mut framesate).unwrap();
-    loop {
-        event_queue.blocking_dispatch(&mut framesate).unwrap();
-        if framesate.finished() {
-            break;
-        }
+    #[inline]
+    fn ispedding(&self) -> bool {
+        matches!(self.state, ScreenCopyState::Pedding)
     }
-    match framesate.state {
-        ScreenCopyState::Finished => Some(framesate),
-        ScreenCopyState::Failed => {
-            tracing::error!("Cannot take screen copy");
-            None
+
+    pub fn capture_output_frame(
+        &mut self,
+        output: &WlOutput,
+        event_queue: &mut EventQueue<Self>,
+        (realwidth, realheight): (i32, i32),
+        transform: wl_output::Transform,
+        slurpoption: Option<(i32, i32, i32, i32)>,
+    ) -> Option<FrameInfo> {
+        let manager = self.wlr_screencopy.as_ref().unwrap();
+
+        tracing::info!("windowinfo ==> width :{realwidth}, height: {realheight}");
+        let qh = event_queue.handle();
+        let frame = match slurpoption {
+            None => manager.capture_output(0, output, &qh, ()),
+            Some((x, y, width, height)) => {
+                manager.capture_output_region(0, output, x, y, width, height, &qh, ())
+            }
+        };
+        let mut frameformat = None;
+        let mut frame_mmap = None;
+        loop {
+            event_queue.blocking_dispatch(self).unwrap();
+            if self.finished() {
+                break;
+            }
+            if self.ispedding() {
+                frameformat = self
+                    .formats
+                    .iter()
+                    .find(|frame| {
+                        matches!(
+                            frame.format,
+                            wl_shm::Format::Xbgr2101010
+                                | wl_shm::Format::Abgr2101010
+                                | wl_shm::Format::Argb8888
+                                | wl_shm::Format::Xrgb8888
+                                | wl_shm::Format::Xbgr8888
+                        )
+                    })
+                    .copied();
+                let frame_format = frameformat.as_ref().unwrap();
+                let frame_bytes = frame_format.stride * frame_format.height;
+                let mut state_result = || {
+                    let mem_fd = create_shm_fd()?;
+                    let mem_file = unsafe { File::from_raw_fd(mem_fd) };
+                    mem_file.set_len(frame_bytes as u64)?;
+
+                    let shm_pool =
+                        self.shm
+                            .as_ref()
+                            .unwrap()
+                            .create_pool(mem_fd, frame_bytes as i32, &qh, ());
+
+                    let buffer = shm_pool.create_buffer(
+                        0,
+                        frame_format.width as i32,
+                        frame_format.height as i32,
+                        frame_format.stride as i32,
+                        frame_format.format,
+                        &qh,
+                        (),
+                    );
+                    frame.copy(&buffer);
+
+                    // TODO:maybe need some adjust
+                    frame_mmap = Some(unsafe { MmapMut::map_mut(&mem_file)? });
+                    Ok::<(), Box<dyn Error>>(())
+                };
+                if let Err(e) = state_result() {
+                    tracing::error!("Something error: {e}");
+                    std::process::exit(1);
+                }
+            }
         }
-        _ => unreachable!(),
+        match self.state {
+            ScreenCopyState::Finished => {
+                self.formats.clear();
+                self.state = ScreenCopyState::Staging;
+                let output = FrameInfo {
+                    frameformat: frameformat.unwrap(),
+                    frame_mmap: frame_mmap.unwrap(),
+                    transform,
+                    realwidth: realwidth as u32,
+                    realheight: realheight as u32,
+                };
+                Some(output)
+            }
+            ScreenCopyState::Failed => {
+                tracing::error!("Cannot take screen copy");
+                None
+            }
+            _ => unreachable!(),
+        }
     }
 }
