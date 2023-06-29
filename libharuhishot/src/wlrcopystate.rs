@@ -24,8 +24,8 @@ use nix::{
 
 use memmap2::MmapMut;
 
-use crate::harihierror::HarihiError;
-use crate::wlrshotbasestate::HarihiShotState;
+use crate::haruhierror::HaruhiError;
+use crate::wlrshotbasestate::HaruhiShotState;
 
 #[derive(Debug)]
 enum ScreenCopyState {
@@ -144,7 +144,7 @@ fn create_shm_fd() -> std::io::Result<RawFd> {
     }
 }
 
-impl Dispatch<WlBuffer, ()> for HarihiShotState {
+impl Dispatch<WlBuffer, ()> for HaruhiShotState {
     fn event(
         _state: &mut Self,
         _proxy: &WlBuffer,
@@ -156,7 +156,7 @@ impl Dispatch<WlBuffer, ()> for HarihiShotState {
     }
 }
 
-impl Dispatch<WlShmPool, ()> for HarihiShotState {
+impl Dispatch<WlShmPool, ()> for HaruhiShotState {
     fn event(
         _state: &mut Self,
         _proxy: &WlShmPool,
@@ -168,7 +168,7 @@ impl Dispatch<WlShmPool, ()> for HarihiShotState {
     }
 }
 
-impl Dispatch<ZwlrScreencopyFrameV1, ()> for HarihiShotState {
+impl Dispatch<ZwlrScreencopyFrameV1, ()> for HaruhiShotState {
     fn event(
         state: &mut Self,
         _proxy: &ZwlrScreencopyFrameV1,
@@ -238,7 +238,7 @@ impl Dispatch<ZwlrScreencopyFrameV1, ()> for HarihiShotState {
     }
 }
 
-impl HarihiShotState {
+impl HaruhiShotState {
     #[inline]
     fn finished(&self) -> bool {
         matches!(
@@ -260,7 +260,7 @@ impl HarihiShotState {
         (realwidth, realheight): (i32, i32),
         transform: wl_output::Transform,
         slurpoption: Option<(i32, i32, i32, i32)>,
-    ) -> Result<Option<FrameInfo>, HarihiError> {
+    ) -> Result<Option<FrameInfo>, HaruhiError> {
         let manager = self.wlr_screencopy.as_ref().unwrap();
 
         tracing::info!("windowinfo ==> width :{realwidth}, height: {realheight}");
@@ -295,7 +295,7 @@ impl HarihiShotState {
                     })
                     .copied();
                 let frame_format = frameformat.as_ref().ok_or_else(|| {
-                    HarihiError::QueueError("Canot find a frameformat".to_string())
+                    HaruhiError::QueueError("Canot find a frameformat".to_string())
                 })?;
                 let frame_bytes = frame_format.stride * frame_format.height;
                 let mem_fd = create_shm_fd()?;

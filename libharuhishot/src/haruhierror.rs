@@ -7,7 +7,7 @@ use thiserror::Error;
 /// 2. failed in queue
 /// 3. failed in shm copy
 #[derive(Error, Debug)]
-pub enum HarihiError {
+pub enum HaruhiError {
     #[error("Init Failed")]
     InitFailed(String),
     #[error("Error during queue")]

@@ -1,11 +1,12 @@
 [package]
 name = "libharuhishot"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 license = "MIT"
 description = "impl screencopy for wayland"
 authors = ["Decodertalkers <aakari@tutanota.com>"]
 homepage = "https://github.com/Decodetalkers/haruhishot"
+documentation = "https://docs.rs/libharuhishot/"
 keywords = ["wayland"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

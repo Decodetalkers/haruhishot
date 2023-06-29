@@ -13,7 +13,7 @@ use std::iter::zip;
 
 use std::sync::{Arc, Mutex};
 
-use crate::harihierror::HarihiError;
+use crate::haruhierror::HaruhiError;
 use crate::wlrcopystate::WlrCopyStateInfo;
 
 use wayland_client::EventQueue;
@@ -22,7 +22,7 @@ use wayland_client::EventQueue;
 
 
 /// contain base information needed for wlr screencopy
-pub struct HarihiShotState {
+pub struct HaruhiShotState {
     // global information
     /// displays, mainly about screen
     pub displays: Vec<WlOutput>,
@@ -50,13 +50,13 @@ pub struct HarihiShotState {
     pub(crate) queue: Option<Arc<Mutex<EventQueue<Self>>>>,
 }
 
-impl HarihiShotState {
+impl HaruhiShotState {
     /// init a state, it will run wayland dispatch, and return error
-    pub fn init() -> Result<Self, HarihiError> {
+    pub fn init() -> Result<Self, HaruhiError> {
         // Create a Wayland connection by connecting to the server through the
         // environment-provided configuration.
         let conn = Connection::connect_to_env()
-            .map_err(|_| HarihiError::InitFailed("Error During connection".to_string()))?;
+            .map_err(|_| HaruhiError::InitFailed("Error During connection".to_string()))?;
 
         // Retrieve the WlDisplay Wayland object from the connection. This object is
         // the starting point of any Wayland program, from which all other objects will
@@ -76,45 +76,45 @@ impl HarihiShotState {
 
         // At this point everything is ready, and we just need to wait to receive the events
         // from the wl_registry, our callback will print the advertized globals.
-        let mut state = HarihiShotState::new();
+        let mut state = HaruhiShotState::new();
         event_queue
             .roundtrip(&mut state)
-            .map_err(|_| HarihiError::InitFailed("Error During first roundtrip".to_string()))?;
+            .map_err(|_| HaruhiError::InitFailed("Error During first roundtrip".to_string()))?;
         let xdg_output_manager = state.xdg_output_manager.clone().unwrap();
         for i in 0..state.displays.len() {
             xdg_output_manager.get_xdg_output(&state.displays[i], &qh, ());
             event_queue
                 .roundtrip(&mut state)
-                .map_err(|_| HarihiError::InitFailed("Error During xdg_output init".to_string()))?;
+                .map_err(|_| HaruhiError::InitFailed("Error During xdg_output init".to_string()))?;
         }
         state.queue = Some(Arc::new(Mutex::new(event_queue)));
 
         Ok(state)
     }
 
-    pub(crate) fn get_event_queue_handle(&self) -> Result<QueueHandle<Self>, HarihiError> {
+    pub(crate) fn get_event_queue_handle(&self) -> Result<QueueHandle<Self>, HaruhiError> {
         Ok(self
             .queue
             .as_ref()
             .unwrap()
             .lock()
-            .map_err(|_| HarihiError::QueueError("Cannot unlock the queue".to_string()))?
+            .map_err(|_| HaruhiError::QueueError("Cannot unlock the queue".to_string()))?
             .handle())
     }
 
-    pub(crate) fn block_dispatch(&mut self) -> Result<(), HarihiError> {
+    pub(crate) fn block_dispatch(&mut self) -> Result<(), HaruhiError> {
         let queue = self.queue.clone().unwrap();
         let mut event_queue = queue
             .lock()
-            .map_err(|_| HarihiError::QueueError("Cannot unlock the queue".to_string()))?;
+            .map_err(|_| HaruhiError::QueueError("Cannot unlock the queue".to_string()))?;
         event_queue
             .blocking_dispatch(self)
-            .map_err(|_| HarihiError::QueueError("Error during dispatch".to_string()))?;
+            .map_err(|_| HaruhiError::QueueError("Error during dispatch".to_string()))?;
         Ok(())
     }
 
     fn new() -> Self {
-        HarihiShotState {
+        HaruhiShotState {
             displays: Vec::new(),
             display_names: Vec::new(),
             display_description: Vec::new(),
@@ -304,14 +304,14 @@ impl HarihiShotState {
 //
 // In this example, we just use () as we don't have any value to associate. See
 // the `Dispatch` documentation for more details about this.
-impl Dispatch<wl_registry::WlRegistry, ()> for HarihiShotState {
+impl Dispatch<wl_registry::WlRegistry, ()> for HaruhiShotState {
     fn event(
         state: &mut Self,
         registry: &wl_registry::WlRegistry,
         event: wl_registry::Event,
         _: &(),
         conn: &Connection,
-        qh: &QueueHandle<HarihiShotState>,
+        qh: &QueueHandle<HaruhiShotState>,
     ) {
         // When receiving events from the wl_registry, we are only interested in the
         // `global` event, which signals a new available global.
@@ -342,7 +342,7 @@ impl Dispatch<wl_registry::WlRegistry, ()> for HarihiShotState {
     }
 }
 
-impl Dispatch<WlOutput, ()> for HarihiShotState {
+impl Dispatch<WlOutput, ()> for HaruhiShotState {
     fn event(
         state: &mut Self,
         _proxy: &WlOutput,
@@ -374,7 +374,7 @@ impl Dispatch<WlOutput, ()> for HarihiShotState {
         }
     }
 }
-impl Dispatch<ZxdgOutputV1, ()> for HarihiShotState {
+impl Dispatch<ZxdgOutputV1, ()> for HaruhiShotState {
     fn event(
         state: &mut Self,
         _proxy: &ZxdgOutputV1,
@@ -395,7 +395,7 @@ impl Dispatch<ZxdgOutputV1, ()> for HarihiShotState {
     }
 }
 
-impl Dispatch<ZxdgOutputManagerV1, ()> for HarihiShotState {
+impl Dispatch<ZxdgOutputManagerV1, ()> for HaruhiShotState {
     fn event(
         _state: &mut Self,
         _proxy: &ZxdgOutputManagerV1,
@@ -407,7 +407,7 @@ impl Dispatch<ZxdgOutputManagerV1, ()> for HarihiShotState {
     }
 }
 
-impl Dispatch<WlShm, ()> for HarihiShotState {
+impl Dispatch<WlShm, ()> for HaruhiShotState {
     fn event(
         _state: &mut Self,
         _proxy: &WlShm,
@@ -419,7 +419,7 @@ impl Dispatch<WlShm, ()> for HarihiShotState {
     }
 }
 
-impl Dispatch<ZwlrScreencopyManagerV1, ()> for HarihiShotState {
+impl Dispatch<ZwlrScreencopyManagerV1, ()> for HaruhiShotState {
     fn event(
         _state: &mut Self,
         _proxy: &ZwlrScreencopyManagerV1,

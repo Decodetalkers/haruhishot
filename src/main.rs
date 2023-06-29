@@ -11,7 +11,7 @@ mod slintbackend;
 #[cfg(feature = "sway")]
 mod swayloop;
 
-use libharuhishot::HarihiShotState;
+use libharuhishot::HaruhiShotState;
 // This struct represents the state of our app. This simple app does not
 // need any state, by this type still supports the `Dispatch` implementations.
 
@@ -247,12 +247,12 @@ fn main() {
 }
 
 fn take_screenshot(option: ClapOption) {
-    let mut state = HarihiShotState::init().unwrap();
+    let mut state = HaruhiShotState::init().unwrap();
 
     if state.is_ready() {
         tracing::info!("All data is ready");
 
-        let shoot_choosed_screen = |usestdout: bool, id: usize, state: &mut HarihiShotState| {
+        let shoot_choosed_screen = |usestdout: bool, id: usize, state: &mut HaruhiShotState| {
             let bufferdata = state.capture_output_frame(
                 &state.displays[id].clone(),
                 state.display_logic_size[id],
@@ -268,7 +268,7 @@ fn take_screenshot(option: ClapOption) {
 
         let shot_with_regions =
             |usestdout: bool,
-             state: &mut HarihiShotState,
+             state: &mut HaruhiShotState,
              ids: Vec<usize>,
              posinformation: (i32, i32, i32, i32)| {
                 let (pos_x, pos_y, width, height) = posinformation;
