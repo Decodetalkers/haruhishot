@@ -11,7 +11,7 @@ use wayland_protocols_wlr::screencopy::v1::client::zwlr_screencopy_manager_v1::Z
 
 use std::iter::zip;
 
-use crate::wlrbackend::{ScreenCopyState, FrameFormat};
+use crate::wlrbackend::{FrameFormat, ScreenCopyState};
 // This struct represents the state of our app. This simple app does not
 // need any state, by this type still supports the `Dispatch` implementations.
 
@@ -334,5 +334,3 @@ impl Dispatch<ZwlrScreencopyManagerV1, ()> for AppData {
     ) {
     }
 }
-
-
