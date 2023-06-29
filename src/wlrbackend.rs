@@ -3,7 +3,7 @@ use wayland_client::protocol::wl_output::{self, WlOutput};
 use wayland_client::protocol::wl_shm::{self, Format};
 use wayland_client::protocol::wl_shm_pool::WlShmPool;
 use wayland_client::QueueHandle;
-use wayland_client::{Connection, Dispatch, EventQueue, WEnum};
+use wayland_client::{Connection, Dispatch, WEnum};
 use wayland_protocols_wlr::screencopy::v1::client::zwlr_screencopy_frame_v1::{
     self, ZwlrScreencopyFrameV1,
 };
@@ -246,7 +246,6 @@ impl AppData {
     pub fn capture_output_frame(
         &mut self,
         output: &WlOutput,
-        event_queue: &mut EventQueue<Self>,
         (realwidth, realheight): (i32, i32),
         transform: wl_output::Transform,
         slurpoption: Option<(i32, i32, i32, i32)>,
@@ -254,7 +253,7 @@ impl AppData {
         let manager = self.wlr_screencopy.as_ref().unwrap();
 
         tracing::info!("windowinfo ==> width :{realwidth}, height: {realheight}");
-        let qh = event_queue.handle();
+        let qh = self.get_event_queue_handle();
         let frame = match slurpoption {
             None => manager.capture_output(0, output, &qh, ()),
             Some((x, y, width, height)) => {
@@ -264,7 +263,7 @@ impl AppData {
         let mut frameformat = None;
         let mut frame_mmap = None;
         loop {
-            event_queue.blocking_dispatch(self).unwrap();
+            self.blockdispatch();
             if self.finished() {
                 break;
             }

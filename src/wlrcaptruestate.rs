@@ -11,7 +11,11 @@ use wayland_protocols_wlr::screencopy::v1::client::zwlr_screencopy_manager_v1::Z
 
 use std::iter::zip;
 
+use std::sync::{Arc, Mutex};
+
 use crate::wlrbackend::WlrCopyStateInfo;
+
+use wayland_client::EventQueue;
 // This struct represents the state of our app. This simple app does not
 // need any state, by this type still supports the `Dispatch` implementations.
 
@@ -25,16 +29,63 @@ pub struct AppData {
     pub display_scale: Vec<i32>,
     pub display_logic_size: Vec<(i32, i32)>,
     pub display_transform: Vec<Transform>,
-    pub shm: Option<WlShm>,
-    pub wlr_screencopy: Option<ZwlrScreencopyManagerV1>,
-    pub xdg_output_manager: Option<ZxdgOutputManagerV1>,
+    pub(crate) shm: Option<WlShm>,
+    pub(crate) wlr_screencopy: Option<ZwlrScreencopyManagerV1>,
+    pub(crate) xdg_output_manager: Option<ZxdgOutputManagerV1>,
 
     // copy state
-    pub wlr_copy_state_info: WlrCopyStateInfo,
+    pub(crate) wlr_copy_state_info: WlrCopyStateInfo,
+
+    pub(crate) queue: Option<Arc<Mutex<EventQueue<Self>>>>,
 }
 
 impl AppData {
-    pub fn new() -> Self {
+    pub fn init() -> Self {
+        // Create a Wayland connection by connecting to the server through the
+        // environment-provided configuration.
+        let conn = Connection::connect_to_env().unwrap();
+
+        // Retrieve the WlDisplay Wayland object from the connection. This object is
+        // the starting point of any Wayland program, from which all other objects will
+        // be created.
+        let display = conn.display();
+
+        // Create an event queue for our event processing
+        let mut event_queue = conn.new_event_queue();
+        // An get its handle to associated new objects to it
+        let qh = event_queue.handle();
+
+        // Create a wl_registry object by sending the wl_display.get_registry request
+        // This method takes two arguments: a handle to the queue the newly created
+        // wl_registry will be assigned to, and the user-data that should be associated
+        // with this registry (here it is () as we don't need user-data).
+        let _registry = display.get_registry(&qh, ());
+
+        // At this point everything is ready, and we just need to wait to receive the events
+        // from the wl_registry, our callback will print the advertized globals.
+        let mut state = AppData::new();
+        event_queue.roundtrip(&mut state).unwrap();
+        let xdg_output_manager = state.xdg_output_manager.clone().unwrap();
+        for i in 0..state.displays.len() {
+            xdg_output_manager.get_xdg_output(&state.displays[i], &qh, ());
+            event_queue.roundtrip(&mut state).unwrap();
+        }
+        state.queue = Some(Arc::new(Mutex::new(event_queue)));
+
+        state
+    }
+
+    pub fn get_event_queue_handle(&self) -> QueueHandle<Self> {
+        self.queue.as_ref().unwrap().lock().unwrap().handle()
+    }
+
+    pub fn blockdispatch(&mut self) {
+        let queue = self.queue.clone().unwrap();
+        let mut event_queue = queue.lock().unwrap();
+        event_queue.blocking_dispatch(self).unwrap();
+    }
+
+    fn new() -> Self {
         AppData {
             displays: Vec::new(),
             display_names: Vec::new(),
@@ -48,6 +99,7 @@ impl AppData {
             wlr_screencopy: None,
             xdg_output_manager: None,
             wlr_copy_state_info: WlrCopyStateInfo::init(),
+            queue: None,
         }
     }
 
