@@ -4,8 +4,9 @@ use wayland_client::protocol::wl_shm::{self, Format};
 use wayland_client::protocol::wl_shm_pool::WlShmPool;
 use wayland_client::QueueHandle;
 use wayland_client::{Connection, Dispatch, EventQueue, WEnum};
-use wayland_protocols_wlr::screencopy::v1::client::zwlr_screencopy_frame_v1;
-use wayland_protocols_wlr::screencopy::v1::client::zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1;
+use wayland_protocols_wlr::screencopy::v1::client::zwlr_screencopy_frame_v1::{
+    self, ZwlrScreencopyFrameV1,
+};
 
 use std::error::Error;
 use std::os::fd::FromRawFd;
