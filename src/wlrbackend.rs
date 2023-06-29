@@ -222,7 +222,7 @@ impl AppData {
         )
     }
     #[inline]
-    fn ispedding(&self) -> bool {
+    fn is_pedding(&self) -> bool {
         matches!(self.state, ScreenCopyState::Pedding)
     }
 
@@ -251,7 +251,7 @@ impl AppData {
             if self.finished() {
                 break;
             }
-            if self.ispedding() {
+            if self.is_pedding() {
                 frameformat = self
                     .formats
                     .iter()

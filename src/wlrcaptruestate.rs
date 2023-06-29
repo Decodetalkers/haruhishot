@@ -28,7 +28,6 @@ pub struct AppData {
     pub wlr_screencopy: Option<ZwlrScreencopyManagerV1>,
     pub xdg_output_manager: Option<ZxdgOutputManagerV1>,
     pub state: ScreenCopyState,
-
     pub formats: Vec<FrameFormat>,
 }
 
