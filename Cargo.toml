@@ -10,7 +10,7 @@ members = [".", "libharuhishot"]
 
 [dependencies]
 
-libharuhishot = { path = "libharuhishot", version = "0.2.1" }
+libharuhishot = { path = "libharuhishot", version = "0.2.2" }
 
 #wayland-client = "=0.30.0-beta.13"
 

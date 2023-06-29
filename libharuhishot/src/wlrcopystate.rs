@@ -27,6 +27,47 @@ use memmap2::MmapMut;
 use crate::haruhierror::HaruhiError;
 use crate::wlrshotbasestate::HaruhiShotState;
 
+/// mark the area selected
+/// from x, y, width, height
+/// mark for [Option<(i32,i32,i32,i32)>]
+pub enum SlurpArea {
+    None,
+    Area {
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+    },
+}
+
+impl From<Option<(i32, i32, i32, i32)>> for SlurpArea {
+    fn from(value: Option<(i32, i32, i32, i32)>) -> Self {
+        match value {
+            None => Self::None,
+            Some((x, y, width, height)) => Self::Area {
+                x,
+                y,
+                width,
+                height,
+            },
+        }
+    }
+}
+
+impl From<SlurpArea> for Option<(i32, i32, i32, i32)> {
+    fn from(value: SlurpArea) -> Self {
+        match value {
+            SlurpArea::None => None,
+            SlurpArea::Area {
+                x,
+                y,
+                width,
+                height,
+            } => Some((x, y, width, height)),
+        }
+    }
+}
+
 #[derive(Debug)]
 enum ScreenCopyState {
     Staging,
@@ -254,22 +295,32 @@ impl HaruhiShotState {
 
     /// capture a frame, it will return [FrameInfo], or [HarihiError]
     /// with frameinfo, you can use it to create image
-    pub fn capture_output_frame(
+    /// realwidth and realheight  it is the logic width and height you choose
+    /// finally the image will resize as the width and height privided here
+    /// because the image capture by wm will not be the same size you choose
+    /// slurpoption please view [SlurpArea], it accepts a area, when capture region
+    pub fn capture_output_frame<T>(
         &mut self,
         output: &WlOutput,
         (realwidth, realheight): (i32, i32),
         transform: wl_output::Transform,
-        slurpoption: Option<(i32, i32, i32, i32)>,
-    ) -> Result<Option<FrameInfo>, HaruhiError> {
+        slurpoption: T,
+    ) -> Result<Option<FrameInfo>, HaruhiError>
+    where
+        T: Into<SlurpArea>,
+    {
         let manager = self.wlr_screencopy.as_ref().unwrap();
 
         tracing::info!("windowinfo ==> width :{realwidth}, height: {realheight}");
         let qh = self.get_event_queue_handle()?;
-        let frame = match slurpoption {
-            None => manager.capture_output(0, output, &qh, ()),
-            Some((x, y, width, height)) => {
-                manager.capture_output_region(0, output, x, y, width, height, &qh, ())
-            }
+        let frame = match slurpoption.into() {
+            SlurpArea::None => manager.capture_output(0, output, &qh, ()),
+            SlurpArea::Area {
+                x,
+                y,
+                width,
+                height,
+            } => manager.capture_output_region(0, output, x, y, width, height, &qh, ()),
         };
         let mut frameformat = None;
         let mut frame_mmap = None;

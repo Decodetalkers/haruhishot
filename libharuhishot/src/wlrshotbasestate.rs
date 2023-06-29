@@ -177,7 +177,7 @@ impl HaruhiShotState {
                 endx = x + width;
             }
             if y + height > endy {
-                endy = y + width;
+                endy = y + height;
             }
         }
         (startx, starty, endx - startx, endy - starty)
