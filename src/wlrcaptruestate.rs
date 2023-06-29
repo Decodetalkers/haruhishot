@@ -11,11 +11,12 @@ use wayland_protocols_wlr::screencopy::v1::client::zwlr_screencopy_manager_v1::Z
 
 use std::iter::zip;
 
-use crate::wlrbackend::{FrameFormat, ScreenCopyState};
+use crate::wlrbackend::WlrCopyStateInfo;
 // This struct represents the state of our app. This simple app does not
 // need any state, by this type still supports the `Dispatch` implementations.
 
 pub struct AppData {
+    // global information
     pub displays: Vec<WlOutput>,
     pub display_names: Vec<String>,
     pub display_description: Vec<String>,
@@ -27,8 +28,9 @@ pub struct AppData {
     pub shm: Option<WlShm>,
     pub wlr_screencopy: Option<ZwlrScreencopyManagerV1>,
     pub xdg_output_manager: Option<ZxdgOutputManagerV1>,
-    pub state: ScreenCopyState,
-    pub formats: Vec<FrameFormat>,
+
+    // copy state
+    pub wlr_copy_state_info: WlrCopyStateInfo,
 }
 
 impl AppData {
@@ -45,8 +47,7 @@ impl AppData {
             shm: None,
             wlr_screencopy: None,
             xdg_output_manager: None,
-            state: ScreenCopyState::Staging,
-            formats: Vec::new(),
+            wlr_copy_state_info: WlrCopyStateInfo::init(),
         }
     }
 

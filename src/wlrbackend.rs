@@ -28,7 +28,7 @@ use memmap2::MmapMut;
 use crate::wlrcaptruestate::AppData;
 
 #[derive(Debug)]
-pub enum ScreenCopyState {
+enum ScreenCopyState {
     Staging,
     Pedding,
     Finished,
@@ -48,8 +48,23 @@ pub struct FrameFormat {
     pub format: Format,
     pub width: u32,
     pub height: u32,
-    pub stride: u32,
+    stride: u32,
 }
+
+pub struct WlrCopyStateInfo {
+    state: ScreenCopyState,
+    formats: Vec<FrameFormat>,
+}
+
+impl WlrCopyStateInfo {
+    pub fn init() -> Self {
+        Self {
+            state: ScreenCopyState::Staging,
+            formats: Vec::new(),
+        }
+    }
+}
+
 /// capture_output_frame.
 fn create_shm_fd() -> std::io::Result<RawFd> {
     // Only try memfd on linux and freebsd.
@@ -160,7 +175,7 @@ impl Dispatch<ZwlrScreencopyFrameV1, ()> for AppData {
                 //tv_sec_lo,
                 //tv_nsec,
             } => {
-                state.state = ScreenCopyState::Finished;
+                state.wlr_copy_state_info.state = ScreenCopyState::Finished;
                 tracing::info!("Receive Ready event");
             }
             zwlr_screencopy_frame_v1::Event::Buffer {
@@ -175,18 +190,18 @@ impl Dispatch<ZwlrScreencopyFrameV1, ()> for AppData {
                     },
                     WEnum::Unknown(e) => {
                         tracing::error!("Unknown format :{}",e);
-                        state.state = ScreenCopyState::Failed;
+                        state.wlr_copy_state_info.state = ScreenCopyState::Failed;
                         return;
                     }
                 };
                 tracing::info!("Format is {:?}", format);
-                state.formats.push(FrameFormat {
+                state.wlr_copy_state_info.formats.push(FrameFormat {
                     format,
                     width,
                     height,
                     stride,
                 });
-                state.state = ScreenCopyState::Pedding;
+                state.wlr_copy_state_info.state = ScreenCopyState::Pedding;
                     // buffer done
             }
             zwlr_screencopy_frame_v1::Event::LinuxDmabuf {
@@ -207,7 +222,7 @@ impl Dispatch<ZwlrScreencopyFrameV1, ()> for AppData {
             }
             zwlr_screencopy_frame_v1::Event::Failed => {
                 tracing::info!("Receive failed event");
-                state.state = ScreenCopyState::Failed;
+                state.wlr_copy_state_info.state = ScreenCopyState::Failed;
             }
             _ => unreachable!()
         }
@@ -218,13 +233,14 @@ impl AppData {
     #[inline]
     fn finished(&self) -> bool {
         matches!(
-            self.state,
+            self.wlr_copy_state_info.state,
             ScreenCopyState::Failed | ScreenCopyState::Finished
         )
     }
+
     #[inline]
     fn is_pedding(&self) -> bool {
-        matches!(self.state, ScreenCopyState::Pedding)
+        matches!(self.wlr_copy_state_info.state, ScreenCopyState::Pedding)
     }
 
     pub fn capture_output_frame(
@@ -254,6 +270,7 @@ impl AppData {
             }
             if self.is_pedding() {
                 frameformat = self
+                    .wlr_copy_state_info
                     .formats
                     .iter()
                     .find(|frame| {
@@ -301,10 +318,10 @@ impl AppData {
                 }
             }
         }
-        match self.state {
+        match self.wlr_copy_state_info.state {
             ScreenCopyState::Finished => {
-                self.formats.clear();
-                self.state = ScreenCopyState::Staging;
+                self.wlr_copy_state_info.formats.clear();
+                self.wlr_copy_state_info.state = ScreenCopyState::Staging;
                 let output = FrameInfo {
                     frameformat: frameformat.unwrap(),
                     frame_mmap: frame_mmap.unwrap(),
