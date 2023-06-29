@@ -274,7 +274,7 @@ fn take_screenshot(option: ClapOption) {
                 let (pos_x, pos_y, width, height) = posinformation;
                 let mut bufferdatas = Vec::new();
                 for id in ids {
-                    let (pos_x, pos_y) = state.get_real_pos((pos_x, pos_y), id);
+                    let (pos_x, pos_y) = state.get_pos_from_screen((pos_x, pos_y), id);
                     // INFO: sometime I get 0
                     if width == 0 || height == 0 {
                         continue;
@@ -369,7 +369,7 @@ fn take_screenshot(option: ClapOption) {
             }
             ClapOption::ShotWithColor { pos_x, pos_y } => {
                 if let Some(id) = state.get_pos_display_id((pos_x, pos_y)) {
-                    let (pos_x, pos_y) = state.get_real_pos((pos_x, pos_y), id);
+                    let (pos_x, pos_y) = state.get_pos_from_screen((pos_x, pos_y), id);
                     if let Ok(Some(bufferdata)) = state.capture_output_frame(
                         &state.displays[id].clone(),
                         (1, 1),

@@ -35,18 +35,27 @@ enum ScreenCopyState {
     Failed,
 }
 
+/// About the information of the frame
 pub struct FrameInfo {
+    /// frameformat: [FrameFormat]
     pub frameformat: FrameFormat,
+    /// frame_mmap: contain the information of an image
     pub frame_mmap: MmapMut,
+    /// transform: how the screen is layed
     pub transform: wl_output::Transform,
+    /// realwidth: same to above
     pub realwidth: u32,
+    /// realheight: it is the height when you selected, that is phycis height
     pub realheight: u32,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct FrameFormat {
+    /// contain [Format], which in wl_shm
     pub format: Format,
+    /// width: during dispatch , get the width of image
     pub width: u32,
+    /// height: during dispatch, get the height of image
     pub height: u32,
     stride: u32,
 }
@@ -243,6 +252,8 @@ impl HarihiShotState {
         matches!(self.wlr_copy_state_info.state, ScreenCopyState::Pedding)
     }
 
+    /// capture a frame, it will return [FrameInfo], or [HarihiError]
+    /// with frameinfo, you can use it to create image
     pub fn capture_output_frame(
         &mut self,
         output: &WlOutput,

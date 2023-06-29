@@ -20,15 +20,25 @@ use wayland_client::EventQueue;
 // This struct represents the state of our app. This simple app does not
 // need any state, by this type still supports the `Dispatch` implementations.
 
+
+/// contain base information needed for wlr screencopy
 pub struct HarihiShotState {
     // global information
+    /// displays, mainly about screen
     pub displays: Vec<WlOutput>,
+    /// names of displays
     pub display_names: Vec<String>,
+    /// descriptions of displays
     pub display_description: Vec<String>,
+    /// size of displays
     pub display_size: Vec<(i32, i32)>,
+    /// position of display
     pub display_position: Vec<(i32, i32)>,
+    /// scales of displays
     pub display_scale: Vec<i32>,
+    /// logic sizes of displays
     pub display_logic_size: Vec<(i32, i32)>,
+    /// transform fo displays
     pub display_transform: Vec<Transform>,
     pub(crate) shm: Option<WlShm>,
     pub(crate) wlr_screencopy: Option<ZwlrScreencopyManagerV1>,
@@ -41,6 +51,7 @@ pub struct HarihiShotState {
 }
 
 impl HarihiShotState {
+    /// init a state, it will run wayland dispatch, and return error
     pub fn init() -> Result<Self, HarihiError> {
         // Create a Wayland connection by connecting to the server through the
         // environment-provided configuration.
@@ -120,6 +131,7 @@ impl HarihiShotState {
         }
     }
 
+    /// if base information is inited
     pub fn is_ready(&self) -> bool {
         if self.displays.is_empty() {
             tracing::warn!("Cannot find any displays");
@@ -141,6 +153,16 @@ impl HarihiShotState {
         true
     }
 
+    /// caculate the whole screen, merge all screen together to a biggest region like
+    /// ```txt, no_run
+    /// |---------|---------------|
+    /// |         |               |
+    /// |         |               |
+    /// |         |---------------|
+    /// |         |
+    /// |         |
+    /// |---------| (6x10 4x16) = (10 x 26)
+    /// ```
     pub fn get_whole_screens_pos_and_region(&self) -> (i32, i32, i32, i32) {
         let (mut startx, mut starty) = (0, 0);
         let (mut endx, mut endy) = (0, 0);
@@ -161,6 +183,7 @@ impl HarihiShotState {
         (startx, starty, endx - startx, endy - starty)
     }
 
+    /// get the display index from display_names
     pub fn get_select_id(&self, screen: String) -> Option<usize> {
         for (i, dispay_screen) in self.display_names.iter().enumerate() {
             if dispay_screen == &screen {
@@ -170,6 +193,7 @@ impl HarihiShotState {
         None
     }
 
+    /// get which screen the pos in
     pub fn get_pos_display_id(&self, pos: (i32, i32)) -> Option<usize> {
         let (pos_x, pos_y) = pos;
         for (i, ((width, height), (x, y))) in
@@ -182,6 +206,7 @@ impl HarihiShotState {
         None
     }
 
+    /// the ids of the screens involved in the selected region
     pub fn get_pos_display_ids(&self, pos: (i32, i32), size: (i32, i32)) -> Option<Vec<usize>> {
         let (start_x, start_y) = pos;
         let (select_width, select_height) = size;
@@ -237,13 +262,15 @@ impl HarihiShotState {
         }
     }
 
-    pub fn get_real_pos(&self, (pos_x, pos_y): (i32, i32), id: usize) -> (i32, i32) {
+    /// get the pos in screen , it is used in region copy
+    pub fn get_pos_from_screen(&self, (pos_x, pos_y): (i32, i32), id: usize) -> (i32, i32) {
         (
             pos_x - self.display_position[id].0,
             pos_y - self.display_position[id].1,
         )
     }
 
+    /// it will show the display info
     pub fn print_display_info(&self) {
         for (
             scale,
