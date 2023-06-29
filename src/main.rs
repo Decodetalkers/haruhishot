@@ -6,6 +6,7 @@ use clap::{arg, Arg, ArgAction, Command};
 
 mod constenv;
 mod filewriter;
+mod harihierror;
 #[cfg(feature = "gui")]
 mod slintbackend;
 #[cfg(feature = "sway")]
@@ -249,7 +250,7 @@ fn main() {
 }
 
 fn take_screenshot(option: ClapOption) {
-    let mut state = AppData::init();
+    let mut state = AppData::init().unwrap();
 
     if state.is_ready() {
         tracing::info!("All data is ready");
@@ -262,8 +263,9 @@ fn take_screenshot(option: ClapOption) {
                 None,
             );
             match bufferdata {
-                Some(data) => filewriter::write_to_file(data, usestdout),
-                None => tracing::error!("Nothing get, check the log"),
+                Ok(Some(data)) => filewriter::write_to_file(data, usestdout),
+                Ok(None) => tracing::error!("Nothing get, check the log"),
+                Err(e) => eprintln!("Error: {e}"),
             }
         };
 
@@ -280,7 +282,7 @@ fn take_screenshot(option: ClapOption) {
                     if width == 0 || height == 0 {
                         continue;
                     }
-                    let Some(bufferdata) = state.capture_output_frame(
+                    let Ok(Some(bufferdata)) = state.capture_output_frame(
                         &state.displays[id].clone(),
                         (width, height),
                         state.display_transform[id],
@@ -371,7 +373,7 @@ fn take_screenshot(option: ClapOption) {
             ClapOption::ShotWithColor { pos_x, pos_y } => {
                 if let Some(id) = state.get_pos_display_id((pos_x, pos_y)) {
                     let (pos_x, pos_y) = state.get_real_pos((pos_x, pos_y), id);
-                    if let Some(bufferdata) = state.capture_output_frame(
+                    if let Ok(Some(bufferdata)) = state.capture_output_frame(
                         &state.displays[id].clone(),
                         (1, 1),
                         wl_output::Transform::Normal,

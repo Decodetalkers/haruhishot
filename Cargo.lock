@@ -1566,6 +1566,7 @@ dependencies = [
  "slint-build",
  "smithay-client-toolkit 0.17.0",
  "swayipc",
+ "thiserror",
  "tracing",
  "tracing-subscriber",
  "wayland-client 0.30.2",

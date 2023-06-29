@@ -8,7 +8,6 @@ use wayland_protocols_wlr::screencopy::v1::client::zwlr_screencopy_frame_v1::{
     self, ZwlrScreencopyFrameV1,
 };
 
-use std::error::Error;
 use std::os::fd::FromRawFd;
 use std::{
     ffi::CStr,
@@ -25,6 +24,7 @@ use nix::{
 
 use memmap2::MmapMut;
 
+use crate::harihierror::HarihiError;
 use crate::wlrcaptruestate::AppData;
 
 #[derive(Debug)]
@@ -249,11 +249,11 @@ impl AppData {
         (realwidth, realheight): (i32, i32),
         transform: wl_output::Transform,
         slurpoption: Option<(i32, i32, i32, i32)>,
-    ) -> Option<FrameInfo> {
+    ) -> Result<Option<FrameInfo>, HarihiError> {
         let manager = self.wlr_screencopy.as_ref().unwrap();
 
         tracing::info!("windowinfo ==> width :{realwidth}, height: {realheight}");
-        let qh = self.get_event_queue_handle();
+        let qh = self.get_event_queue_handle()?;
         let frame = match slurpoption {
             None => manager.capture_output(0, output, &qh, ()),
             Some((x, y, width, height)) => {
@@ -263,7 +263,7 @@ impl AppData {
         let mut frameformat = None;
         let mut frame_mmap = None;
         loop {
-            self.blockdispatch();
+            self.blockdispatch()?;
             if self.finished() {
                 break;
             }
@@ -285,36 +285,37 @@ impl AppData {
                     .copied();
                 let frame_format = frameformat.as_ref().unwrap();
                 let frame_bytes = frame_format.stride * frame_format.height;
-                let mut state_result = || {
-                    let mem_fd = create_shm_fd()?;
-                    let mem_file = unsafe { File::from_raw_fd(mem_fd) };
-                    mem_file.set_len(frame_bytes as u64)?;
+                let mem_fd = create_shm_fd().map_err(|_| {
+                    HarihiError::QueueError("Error During create shm fd".to_string())
+                })?;
+                let mem_file = unsafe { File::from_raw_fd(mem_fd) };
+                mem_file.set_len(frame_bytes as u64).map_err(|_| {
+                    HarihiError::QueueError("Cannot set len for mem_file".to_string())
+                })?;
 
-                    let shm_pool =
-                        self.shm
-                            .as_ref()
-                            .unwrap()
-                            .create_pool(mem_fd, frame_bytes as i32, &qh, ());
+                let shm_pool =
+                    self.shm
+                        .as_ref()
+                        .unwrap()
+                        .create_pool(mem_fd, frame_bytes as i32, &qh, ());
 
-                    let buffer = shm_pool.create_buffer(
-                        0,
-                        frame_format.width as i32,
-                        frame_format.height as i32,
-                        frame_format.stride as i32,
-                        frame_format.format,
-                        &qh,
-                        (),
-                    );
-                    frame.copy(&buffer);
+                let buffer = shm_pool.create_buffer(
+                    0,
+                    frame_format.width as i32,
+                    frame_format.height as i32,
+                    frame_format.stride as i32,
+                    frame_format.format,
+                    &qh,
+                    (),
+                );
+                frame.copy(&buffer);
 
-                    // TODO:maybe need some adjust
-                    frame_mmap = Some(unsafe { MmapMut::map_mut(&mem_file)? });
-                    Ok::<(), Box<dyn Error>>(())
-                };
-                if let Err(e) = state_result() {
-                    tracing::error!("Something error: {e}");
-                    std::process::exit(1);
-                }
+                // TODO:maybe need some adjust
+                frame_mmap = Some(unsafe {
+                    MmapMut::map_mut(&mem_file).map_err(|_| {
+                        HarihiError::QueueError("Error during get MmapMut".to_string())
+                    })?
+                });
             }
         }
         match self.wlr_copy_state_info.state {
@@ -328,11 +329,11 @@ impl AppData {
                     realwidth: realwidth as u32,
                     realheight: realheight as u32,
                 };
-                Some(output)
+                Ok(Some(output))
             }
             ScreenCopyState::Failed => {
                 tracing::error!("Cannot take screen copy");
-                None
+                Ok(None)
             }
             _ => unreachable!(),
         }

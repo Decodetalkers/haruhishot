@@ -13,6 +13,7 @@ use std::iter::zip;
 
 use std::sync::{Arc, Mutex};
 
+use crate::harihierror::HarihiError;
 use crate::wlrbackend::WlrCopyStateInfo;
 
 use wayland_client::EventQueue;
@@ -40,10 +41,11 @@ pub struct AppData {
 }
 
 impl AppData {
-    pub fn init() -> Self {
+    pub fn init() -> Result<Self, HarihiError> {
         // Create a Wayland connection by connecting to the server through the
         // environment-provided configuration.
-        let conn = Connection::connect_to_env().unwrap();
+        let conn = Connection::connect_to_env()
+            .map_err(|_| HarihiError::InitFailed("Error During connection".to_string()))?;
 
         // Retrieve the WlDisplay Wayland object from the connection. This object is
         // the starting point of any Wayland program, from which all other objects will
@@ -64,25 +66,40 @@ impl AppData {
         // At this point everything is ready, and we just need to wait to receive the events
         // from the wl_registry, our callback will print the advertized globals.
         let mut state = AppData::new();
-        event_queue.roundtrip(&mut state).unwrap();
+        event_queue
+            .roundtrip(&mut state)
+            .map_err(|_| HarihiError::InitFailed("Error During first roundtrip".to_string()))?;
         let xdg_output_manager = state.xdg_output_manager.clone().unwrap();
         for i in 0..state.displays.len() {
             xdg_output_manager.get_xdg_output(&state.displays[i], &qh, ());
-            event_queue.roundtrip(&mut state).unwrap();
+            event_queue
+                .roundtrip(&mut state)
+                .map_err(|_| HarihiError::InitFailed("Error During xdg_output init".to_string()))?;
         }
         state.queue = Some(Arc::new(Mutex::new(event_queue)));
 
-        state
+        Ok(state)
     }
 
-    pub fn get_event_queue_handle(&self) -> QueueHandle<Self> {
-        self.queue.as_ref().unwrap().lock().unwrap().handle()
+    pub fn get_event_queue_handle(&self) -> Result<QueueHandle<Self>, HarihiError> {
+        Ok(self
+            .queue
+            .as_ref()
+            .unwrap()
+            .lock()
+            .map_err(|_| HarihiError::QueueError("Cannot unlock the queue".to_string()))?
+            .handle())
     }
 
-    pub fn blockdispatch(&mut self) {
+    pub fn blockdispatch(&mut self) -> Result<(), HarihiError> {
         let queue = self.queue.clone().unwrap();
-        let mut event_queue = queue.lock().unwrap();
-        event_queue.blocking_dispatch(self).unwrap();
+        let mut event_queue = queue
+            .lock()
+            .map_err(|_| HarihiError::QueueError("Cannot unlock the queue".to_string()))?;
+        event_queue
+            .blocking_dispatch(self)
+            .map_err(|_| HarihiError::QueueError("Error during dispatch".to_string()))?;
+        Ok(())
     }
 
     fn new() -> Self {
