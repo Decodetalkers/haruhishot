@@ -14,13 +14,13 @@ use std::iter::zip;
 use std::sync::{Arc, Mutex};
 
 use crate::harihierror::HarihiError;
-use crate::wlrbackend::WlrCopyStateInfo;
+use crate::wlrcopystate::WlrCopyStateInfo;
 
 use wayland_client::EventQueue;
 // This struct represents the state of our app. This simple app does not
 // need any state, by this type still supports the `Dispatch` implementations.
 
-pub struct AppData {
+pub struct HarihiShotState {
     // global information
     pub displays: Vec<WlOutput>,
     pub display_names: Vec<String>,
@@ -40,7 +40,7 @@ pub struct AppData {
     pub(crate) queue: Option<Arc<Mutex<EventQueue<Self>>>>,
 }
 
-impl AppData {
+impl HarihiShotState {
     pub fn init() -> Result<Self, HarihiError> {
         // Create a Wayland connection by connecting to the server through the
         // environment-provided configuration.
@@ -65,7 +65,7 @@ impl AppData {
 
         // At this point everything is ready, and we just need to wait to receive the events
         // from the wl_registry, our callback will print the advertized globals.
-        let mut state = AppData::new();
+        let mut state = HarihiShotState::new();
         event_queue
             .roundtrip(&mut state)
             .map_err(|_| HarihiError::InitFailed("Error During first roundtrip".to_string()))?;
@@ -103,7 +103,7 @@ impl AppData {
     }
 
     fn new() -> Self {
-        AppData {
+        HarihiShotState {
             displays: Vec::new(),
             display_names: Vec::new(),
             display_description: Vec::new(),
@@ -277,14 +277,14 @@ impl AppData {
 //
 // In this example, we just use () as we don't have any value to associate. See
 // the `Dispatch` documentation for more details about this.
-impl Dispatch<wl_registry::WlRegistry, ()> for AppData {
+impl Dispatch<wl_registry::WlRegistry, ()> for HarihiShotState {
     fn event(
         state: &mut Self,
         registry: &wl_registry::WlRegistry,
         event: wl_registry::Event,
         _: &(),
         conn: &Connection,
-        qh: &QueueHandle<AppData>,
+        qh: &QueueHandle<HarihiShotState>,
     ) {
         // When receiving events from the wl_registry, we are only interested in the
         // `global` event, which signals a new available global.
@@ -315,7 +315,7 @@ impl Dispatch<wl_registry::WlRegistry, ()> for AppData {
     }
 }
 
-impl Dispatch<WlOutput, ()> for AppData {
+impl Dispatch<WlOutput, ()> for HarihiShotState {
     fn event(
         state: &mut Self,
         _proxy: &WlOutput,
@@ -347,7 +347,7 @@ impl Dispatch<WlOutput, ()> for AppData {
         }
     }
 }
-impl Dispatch<ZxdgOutputV1, ()> for AppData {
+impl Dispatch<ZxdgOutputV1, ()> for HarihiShotState {
     fn event(
         state: &mut Self,
         _proxy: &ZxdgOutputV1,
@@ -368,7 +368,7 @@ impl Dispatch<ZxdgOutputV1, ()> for AppData {
     }
 }
 
-impl Dispatch<ZxdgOutputManagerV1, ()> for AppData {
+impl Dispatch<ZxdgOutputManagerV1, ()> for HarihiShotState {
     fn event(
         _state: &mut Self,
         _proxy: &ZxdgOutputManagerV1,
@@ -380,7 +380,7 @@ impl Dispatch<ZxdgOutputManagerV1, ()> for AppData {
     }
 }
 
-impl Dispatch<WlShm, ()> for AppData {
+impl Dispatch<WlShm, ()> for HarihiShotState {
     fn event(
         _state: &mut Self,
         _proxy: &WlShm,
@@ -392,7 +392,7 @@ impl Dispatch<WlShm, ()> for AppData {
     }
 }
 
-impl Dispatch<ZwlrScreencopyManagerV1, ()> for AppData {
+impl Dispatch<ZwlrScreencopyManagerV1, ()> for HarihiShotState {
     fn event(
         _state: &mut Self,
         _proxy: &ZwlrScreencopyManagerV1,

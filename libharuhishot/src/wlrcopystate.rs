@@ -25,7 +25,7 @@ use nix::{
 use memmap2::MmapMut;
 
 use crate::harihierror::HarihiError;
-use crate::wlrcaptruestate::AppData;
+use crate::wlrshotbasestate::HarihiShotState;
 
 #[derive(Debug)]
 enum ScreenCopyState {
@@ -135,7 +135,7 @@ fn create_shm_fd() -> std::io::Result<RawFd> {
     }
 }
 
-impl Dispatch<WlBuffer, ()> for AppData {
+impl Dispatch<WlBuffer, ()> for HarihiShotState {
     fn event(
         _state: &mut Self,
         _proxy: &WlBuffer,
@@ -147,7 +147,7 @@ impl Dispatch<WlBuffer, ()> for AppData {
     }
 }
 
-impl Dispatch<WlShmPool, ()> for AppData {
+impl Dispatch<WlShmPool, ()> for HarihiShotState {
     fn event(
         _state: &mut Self,
         _proxy: &WlShmPool,
@@ -159,7 +159,7 @@ impl Dispatch<WlShmPool, ()> for AppData {
     }
 }
 
-impl Dispatch<ZwlrScreencopyFrameV1, ()> for AppData {
+impl Dispatch<ZwlrScreencopyFrameV1, ()> for HarihiShotState {
     fn event(
         state: &mut Self,
         _proxy: &ZwlrScreencopyFrameV1,
@@ -229,7 +229,7 @@ impl Dispatch<ZwlrScreencopyFrameV1, ()> for AppData {
     }
 }
 
-impl AppData {
+impl HarihiShotState {
     #[inline]
     fn finished(&self) -> bool {
         matches!(

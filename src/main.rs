@@ -6,15 +6,12 @@ use clap::{arg, Arg, ArgAction, Command};
 
 mod constenv;
 mod filewriter;
-mod harihierror;
 #[cfg(feature = "gui")]
 mod slintbackend;
 #[cfg(feature = "sway")]
 mod swayloop;
-mod wlrbackend;
-mod wlrcaptruestate;
 
-use wlrcaptruestate::AppData;
+use libharuhishot::HarihiShotState;
 // This struct represents the state of our app. This simple app does not
 // need any state, by this type still supports the `Dispatch` implementations.
 
@@ -250,12 +247,12 @@ fn main() {
 }
 
 fn take_screenshot(option: ClapOption) {
-    let mut state = AppData::init().unwrap();
+    let mut state = HarihiShotState::init().unwrap();
 
     if state.is_ready() {
         tracing::info!("All data is ready");
 
-        let shoot_choosed_screen = |usestdout: bool, id: usize, state: &mut AppData| {
+        let shoot_choosed_screen = |usestdout: bool, id: usize, state: &mut HarihiShotState| {
             let bufferdata = state.capture_output_frame(
                 &state.displays[id].clone(),
                 state.display_logic_size[id],
@@ -271,7 +268,7 @@ fn take_screenshot(option: ClapOption) {
 
         let shot_with_regions =
             |usestdout: bool,
-             state: &mut AppData,
+             state: &mut HarihiShotState,
              ids: Vec<usize>,
              posinformation: (i32, i32, i32, i32)| {
                 let (pos_x, pos_y, width, height) = posinformation;

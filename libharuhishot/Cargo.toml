@@ -1,0 +1,32 @@
+[package]
+name = "libharuhishot"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+wayland-protocols = { version = "0.30.0", default-features = false, features = [
+	"unstable",
+	"client",
+] }
+#wayland-protocols = { version = "=0.30.0-beta.13", features = ["client", "unstable"] }
+
+
+wayland-protocols-wlr = { version = "0.1.0", default-features = false, features = [
+	"client",
+] }
+wayland-client = "0.30"
+#wayland-client = "=0.30.0-beta.13"
+
+nix = "0.26.2"
+memmap2 = "0.7.1"
+
+
+# in the feature
+tracing-subscriber = "0.3.17"
+tracing = "0.1.37"
+once_cell = "1.18.0"
+
+thiserror = "1.0.40"
+
