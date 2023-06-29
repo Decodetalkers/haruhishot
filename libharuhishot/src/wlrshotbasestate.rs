@@ -81,7 +81,7 @@ impl HarihiShotState {
         Ok(state)
     }
 
-    pub fn get_event_queue_handle(&self) -> Result<QueueHandle<Self>, HarihiError> {
+    pub(crate) fn get_event_queue_handle(&self) -> Result<QueueHandle<Self>, HarihiError> {
         Ok(self
             .queue
             .as_ref()
@@ -91,7 +91,7 @@ impl HarihiShotState {
             .handle())
     }
 
-    pub fn blockdispatch(&mut self) -> Result<(), HarihiError> {
+    pub(crate) fn block_dispatch(&mut self) -> Result<(), HarihiError> {
         let queue = self.queue.clone().unwrap();
         let mut event_queue = queue
             .lock()

@@ -264,7 +264,7 @@ impl HarihiShotState {
         let mut frameformat = None;
         let mut frame_mmap = None;
         loop {
-            self.blockdispatch()?;
+            self.block_dispatch()?;
             if self.finished() {
                 break;
             }
