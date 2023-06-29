@@ -6,19 +6,19 @@ use wayland_client::protocol::wl_output;
 use crate::constenv::SAVEPATH;
 #[cfg(feature = "notify")]
 use crate::constenv::{FAILED_IMAGE, SUCCESSED_IMAGE, TIMEOUT};
-use crate::wlrbackend::BufferData;
+use crate::wlrbackend::FrameInfo;
 
 use std::io::Write;
 use std::io::{stdout, BufWriter, Cursor};
 use std::time;
 
-pub fn get_color(bufferdata: BufferData) {
+pub fn get_color(bufferdata: FrameInfo) {
     let mut buff = Cursor::new(Vec::new());
     PngEncoder::new(&mut buff)
         .write_image(
-            &bufferdata.frame_mmap.unwrap(),
-            bufferdata.width,
-            bufferdata.height,
+            &bufferdata.frame_mmap,
+            bufferdata.frameformat.width,
+            bufferdata.frameformat.height,
             image::ColorType::Rgba8,
         )
         .unwrap();
@@ -36,13 +36,13 @@ pub fn get_color(bufferdata: BufferData) {
 }
 
 //use std::io::{stdout, BufWriter};
-pub fn write_to_file(bufferdata: BufferData, usestdout: bool) {
+pub fn write_to_file(bufferdata: FrameInfo, usestdout: bool) {
     if usestdout {
         let mut buff = Cursor::new(Vec::new());
         if let Err(_e) = PngEncoder::new(&mut buff).write_image(
-            &bufferdata.frame_mmap.unwrap(),
-            bufferdata.width,
-            bufferdata.height,
+            &bufferdata.frame_mmap,
+            bufferdata.frameformat.width,
+            bufferdata.frameformat.height,
             image::ColorType::Rgba8,
         ) {
             #[cfg(feature = "notify")]
@@ -115,9 +115,9 @@ pub fn write_to_file(bufferdata: BufferData, usestdout: bool) {
         //let frame_mmap = &mut bufferdata.frame_mmap.unwrap();
         if PngEncoder::new(&mut writer)
             .write_image(
-                &bufferdata.frame_mmap.unwrap(),
-                bufferdata.width,
-                bufferdata.height,
+                &bufferdata.frame_mmap,
+                bufferdata.frameformat.width,
+                bufferdata.frameformat.height,
                 image::ColorType::Rgba8,
             )
             .is_ok()
@@ -195,15 +195,15 @@ where
         _ => image::imageops::resize(image, width, height, image::imageops::FilterType::Gaussian),
     }
 }
-pub fn write_to_file_mutisource(bufferdatas: Vec<BufferData>, usestdout: bool) {
+pub fn write_to_file_mutisource(bufferdatas: Vec<FrameInfo>, usestdout: bool) {
     let mut images = Vec::new();
     for buffer in bufferdatas {
         let mut buff = Cursor::new(Vec::new());
         PngEncoder::new(&mut buff)
             .write_image(
-                &buffer.frame_mmap.unwrap(),
-                buffer.width,
-                buffer.height,
+                &buffer.frame_mmap,
+                buffer.frameformat.width,
+                buffer.frameformat.height,
                 image::ColorType::Rgba8,
             )
             .unwrap();

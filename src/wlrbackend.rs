@@ -34,6 +34,14 @@ enum ScreenCopyState {
     Failed,
 }
 
+pub struct FrameInfo {
+    pub frameformat: FrameFormat,
+    pub frame_mmap: MmapMut,
+    pub transform: wl_output::Transform,
+    pub realwidth: u32,
+    pub realheight: u32,
+}
+
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub struct FrameFormat {
     pub format: Format,
@@ -114,35 +122,19 @@ fn create_shm_fd() -> std::io::Result<RawFd> {
 #[derive(Debug)]
 pub struct BufferData {
     //pub buffer: Option<WlBuffer>,
-    pub width: u32,
-    pub height: u32,
-    pub realwidth: i32,
-    pub realheight: i32,
-    pub transform: wl_output::Transform,
     //pub stride: u32,
     shm: WlShm,
     pub formats: Vec<FrameFormat>,
-    pub frame_mmap: Option<MmapMut>,
     state: ScreenCopyState,
 }
 
 impl BufferData {
-    fn new(
-        shm: WlShm,
-        (realwidth, realheight): (i32, i32),
-        transform: wl_output::Transform,
-    ) -> Self {
+    fn new(shm: WlShm) -> Self {
         BufferData {
             //buffer: None,
-            width: 0,
-            height: 0,
-            realheight,
-            realwidth,
-            transform,
             // stride: 0,
             shm,
             formats: Vec::new(),
-            frame_mmap: None,
             state: ScreenCopyState::Staging,
         }
     }
@@ -237,8 +229,6 @@ impl Dispatch<ZwlrScreencopyFrameV1, ()> for BufferData {
                     height,
                     stride,
                 });
-                state.width = width;
-                state.height = height;
                 state.state = ScreenCopyState::Pedding;
                     // buffer done
             }
@@ -277,18 +267,20 @@ pub fn capture_output_frame(
     (realwidth, realheight): (i32, i32),
     transform: wl_output::Transform,
     slurpoption: Option<(i32, i32, i32, i32)>,
-) -> Option<BufferData> {
+) -> Option<FrameInfo> {
     tracing::info!("windowinfo ==> width :{realwidth}, height: {realheight}");
     let mut event_queue = connection.new_event_queue();
     let qh = event_queue.handle();
     display.get_registry(&qh, ());
-    let mut framesate = BufferData::new(shm, (realwidth, realheight), transform);
+    let mut framesate = BufferData::new(shm);
     let frame = match slurpoption {
         None => manager.capture_output(0, output, &qh, ()),
         Some((x, y, width, height)) => {
             manager.capture_output_region(0, output, x, y, width, height, &qh, ())
         }
     };
+    let mut frameformat = None;
+    let mut frame_mmap = None;
     //event_queue.roundtrip(&mut framesate).unwrap();
     loop {
         event_queue.blocking_dispatch(&mut framesate).unwrap();
@@ -296,7 +288,7 @@ pub fn capture_output_frame(
             break;
         }
         if framesate.ispedding() {
-            let frame_format = framesate
+            frameformat = framesate
                 .formats
                 .iter()
                 .find(|frame| {
@@ -309,8 +301,8 @@ pub fn capture_output_frame(
                             | wl_shm::Format::Xbgr8888
                     )
                 })
-                .copied()
-                .unwrap();
+                .copied();
+            let frame_format = frameformat.as_ref().unwrap();
             let frame_bytes = frame_format.stride * frame_format.height;
             let mut state_result = || {
                 let mem_fd = create_shm_fd()?;
@@ -333,7 +325,7 @@ pub fn capture_output_frame(
                 frame.copy(&buffer);
 
                 // TODO:maybe need some adjust
-                framesate.frame_mmap = Some(unsafe { MmapMut::map_mut(&mem_file)? });
+                frame_mmap = Some(unsafe { MmapMut::map_mut(&mem_file)? });
                 Ok::<(), Box<dyn Error>>(())
             };
             if let Err(e) = state_result() {
@@ -343,7 +335,16 @@ pub fn capture_output_frame(
         }
     }
     match framesate.state {
-        ScreenCopyState::Finished => Some(framesate),
+        ScreenCopyState::Finished => {
+            let output = FrameInfo {
+                frameformat: frameformat.unwrap(),
+                frame_mmap: frame_mmap.unwrap(),
+                transform,
+                realwidth: realwidth as u32,
+                realheight: realheight as u32,
+            };
+            Some(output)
+        }
         ScreenCopyState::Failed => {
             tracing::error!("Cannot take screen copy");
             None
