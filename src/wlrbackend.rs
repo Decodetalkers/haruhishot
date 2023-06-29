@@ -1,7 +1,7 @@
 use wayland_client::protocol::wl_buffer::WlBuffer;
 use wayland_client::protocol::wl_display::WlDisplay;
 use wayland_client::protocol::wl_output::{self, WlOutput};
-use wayland_client::protocol::wl_shm::{self, WlShm};
+use wayland_client::protocol::wl_shm::{self, Format, WlShm};
 use wayland_client::protocol::wl_shm_pool::WlShmPool;
 use wayland_client::{protocol::wl_registry, QueueHandle};
 use wayland_client::{Connection, Dispatch, WEnum};
@@ -29,8 +29,17 @@ use memmap2::MmapMut;
 #[derive(Debug)]
 enum ScreenCopyState {
     Staging,
+    Pedding,
     Finished,
     Failed,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct FrameFormat {
+    pub format: Format,
+    pub width: u32,
+    pub height: u32,
+    pub stride: u32,
 }
 /// capture_output_frame.
 fn create_shm_fd() -> std::io::Result<RawFd> {
@@ -112,6 +121,7 @@ pub struct BufferData {
     pub transform: wl_output::Transform,
     //pub stride: u32,
     shm: WlShm,
+    pub formats: Vec<FrameFormat>,
     pub frame_mmap: Option<MmapMut>,
     state: ScreenCopyState,
 }
@@ -131,6 +141,7 @@ impl BufferData {
             transform,
             // stride: 0,
             shm,
+            formats: Vec::new(),
             frame_mmap: None,
             state: ScreenCopyState::Staging,
         }
@@ -141,6 +152,10 @@ impl BufferData {
             self.state,
             ScreenCopyState::Failed | ScreenCopyState::Finished
         )
+    }
+    #[inline]
+    fn ispedding(&self) -> bool {
+        matches!(self.state, ScreenCopyState::Pedding)
     }
 }
 
@@ -183,11 +198,11 @@ impl Dispatch<WlShmPool, ()> for BufferData {
 impl Dispatch<ZwlrScreencopyFrameV1, ()> for BufferData {
     fn event(
         state: &mut Self,
-        proxy: &ZwlrScreencopyFrameV1,
+        _proxy: &ZwlrScreencopyFrameV1,
         event: <ZwlrScreencopyFrameV1 as wayland_client::Proxy>::Event,
         _data: &(),
         _conn: &wayland_client::Connection,
-        qh: &wayland_client::QueueHandle<Self>,
+        _qh: &wayland_client::QueueHandle<Self>,
     ) {
         match event {
             zwlr_screencopy_frame_v1::Event::Ready {
@@ -216,33 +231,16 @@ impl Dispatch<ZwlrScreencopyFrameV1, ()> for BufferData {
                     }
                 };
                 tracing::info!("Format is {:?}", format);
+                state.formats.push(FrameFormat {
+                    format,
+                    width,
+                    height,
+                    stride,
+                });
                 state.width = width;
                 state.height = height;
-                //state.stride = stride;
-                let frame_bytes = stride * height;
-                let mut state_result = || {
-                    let mem_fd = create_shm_fd()?;
-                    let mem_file = unsafe {
-                        File::from_raw_fd(mem_fd)
-                    };
-                    mem_file.set_len(frame_bytes as u64)?;
-
-                    let shm_pool = state.shm.create_pool(mem_fd, frame_bytes as i32, qh, ());
-                    let buffer =
-                        shm_pool.create_buffer(0, width as i32, height as i32, stride as i32, format, qh, ());
-                    proxy.copy(&buffer);
-
-                    // TODO:maybe need some adjust
-                    state.frame_mmap = Some(unsafe {
-                        MmapMut::map_mut(&mem_file)?
-                    });
-                    Ok::<(), Box<dyn Error>>(())
-                };
-                if let Err(e) = state_result() {
-                    tracing::error!("Something error: {e}");
-                    state.state = ScreenCopyState::Failed;
-                }
-                // buffer done
+                state.state = ScreenCopyState::Pedding;
+                    // buffer done
             }
             zwlr_screencopy_frame_v1::Event::LinuxDmabuf {
                 ..
@@ -285,19 +283,63 @@ pub fn capture_output_frame(
     let qh = event_queue.handle();
     display.get_registry(&qh, ());
     let mut framesate = BufferData::new(shm, (realwidth, realheight), transform);
-    match slurpoption {
-        None => {
-            manager.capture_output(0, output, &qh, ());
-        }
+    let frame = match slurpoption {
+        None => manager.capture_output(0, output, &qh, ()),
         Some((x, y, width, height)) => {
-            manager.capture_output_region(0, output, x, y, width, height, &qh, ());
+            manager.capture_output_region(0, output, x, y, width, height, &qh, ())
         }
-    }
+    };
     //event_queue.roundtrip(&mut framesate).unwrap();
     loop {
         event_queue.blocking_dispatch(&mut framesate).unwrap();
         if framesate.finished() {
             break;
+        }
+        if framesate.ispedding() {
+            let frame_format = framesate
+                .formats
+                .iter()
+                .find(|frame| {
+                    matches!(
+                        frame.format,
+                        wl_shm::Format::Xbgr2101010
+                            | wl_shm::Format::Abgr2101010
+                            | wl_shm::Format::Argb8888
+                            | wl_shm::Format::Xrgb8888
+                            | wl_shm::Format::Xbgr8888
+                    )
+                })
+                .copied()
+                .unwrap();
+            let frame_bytes = frame_format.stride * frame_format.height;
+            let mut state_result = || {
+                let mem_fd = create_shm_fd()?;
+                let mem_file = unsafe { File::from_raw_fd(mem_fd) };
+                mem_file.set_len(frame_bytes as u64)?;
+
+                let shm_pool = framesate
+                    .shm
+                    .create_pool(mem_fd, frame_bytes as i32, &qh, ());
+
+                let buffer = shm_pool.create_buffer(
+                    0,
+                    frame_format.width as i32,
+                    frame_format.height as i32,
+                    frame_format.stride as i32,
+                    frame_format.format,
+                    &qh,
+                    (),
+                );
+                frame.copy(&buffer);
+
+                // TODO:maybe need some adjust
+                framesate.frame_mmap = Some(unsafe { MmapMut::map_mut(&mem_file)? });
+                Ok::<(), Box<dyn Error>>(())
+            };
+            if let Err(e) = state_result() {
+                tracing::error!("Something error: {e}");
+                std::process::exit(1);
+            }
         }
     }
     match framesate.state {
