@@ -51,13 +51,13 @@ pub struct FrameFormat {
     stride: u32,
 }
 
-pub struct WlrCopyStateInfo {
+pub(crate) struct WlrCopyStateInfo {
     state: ScreenCopyState,
     formats: Vec<FrameFormat>,
 }
 
 impl WlrCopyStateInfo {
-    pub fn init() -> Self {
+    pub(crate) fn init() -> Self {
         Self {
             state: ScreenCopyState::Staging,
             formats: Vec::new(),
