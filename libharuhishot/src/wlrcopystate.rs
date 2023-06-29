@@ -230,7 +230,6 @@ impl Dispatch<ZwlrScreencopyFrameV1, ()> for HarihiShotState {
 }
 
 impl HarihiShotState {
-
     #[inline]
     fn finished(&self) -> bool {
         matches!(
@@ -284,7 +283,9 @@ impl HarihiShotState {
                         )
                     })
                     .copied();
-                let frame_format = frameformat.as_ref().unwrap();
+                let frame_format = frameformat.as_ref().ok_or_else(|| {
+                    HarihiError::QueueError("Canot find a frameformat".to_string())
+                })?;
                 let frame_bytes = frame_format.stride * frame_format.height;
                 let mem_fd = create_shm_fd()?;
                 let mem_file = unsafe { File::from_raw_fd(mem_fd) };
