@@ -214,8 +214,8 @@ pub fn write_to_file_mutisource(bufferdatas: Vec<FrameInfo>, usestdout: bool) {
         let image = roate_image(
             &image,
             buffer.transform,
-            buffer.realwidth as u32,
-            buffer.realheight as u32,
+            buffer.realwidth,
+            buffer.realheight,
         );
         images.push(image);
     }
