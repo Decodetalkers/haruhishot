@@ -234,8 +234,6 @@ impl AppData {
         transform: wl_output::Transform,
         slurpoption: Option<(i32, i32, i32, i32)>,
     ) -> Option<FrameInfo> {
-        self.formats.clear();
-        self.state = ScreenCopyState::Staging;
         let manager = self.wlr_screencopy.as_ref().unwrap();
 
         tracing::info!("windowinfo ==> width :{realwidth}, height: {realheight}");
@@ -304,6 +302,8 @@ impl AppData {
         }
         match self.state {
             ScreenCopyState::Finished => {
+                self.formats.clear();
+                self.state = ScreenCopyState::Staging;
                 let output = FrameInfo {
                     frameformat: frameformat.unwrap(),
                     frame_mmap: frame_mmap.unwrap(),
