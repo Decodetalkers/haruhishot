@@ -3,19 +3,15 @@ name = "haruhishot"
 version = "0.3.9"
 edition = "2021"
 build = "build.rs"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[workspace]
+members = [".", "libharuhishot"]
 
 [dependencies]
-wayland-protocols = { version = "0.30.0", default-features = false, features = [
-	"unstable",
-	"client",
-] }
-#wayland-protocols = { version = "=0.30.0-beta.13", features = ["client", "unstable"] }
 
+libharuhishot = { path = "libharuhishot"}
 
-wayland-protocols-wlr = { version = "0.1.0", default-features = false, features = [
-	"client",
-] }
 wayland-client = "0.30"
 #wayland-client = "=0.30.0-beta.13"
 
@@ -24,9 +20,6 @@ image = { version = "0.24", default-features = false, features = [
 	"png",
 	"pnm",
 ] }
-
-nix = "0.26.2"
-memmap2 = "0.7.1"
 
 sctk = { version = "0.17.0", package = "smithay-client-toolkit", optional = true }
 

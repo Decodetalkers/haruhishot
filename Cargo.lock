@@ -1558,8 +1558,7 @@ dependencies = [
  "clap",
  "dialoguer",
  "image",
- "memmap2 0.7.1",
- "nix 0.26.2",
+ "libharuhishot",
  "notify-rust",
  "once_cell",
  "slint",
@@ -1569,8 +1568,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "wayland-client 0.30.2",
- "wayland-protocols 0.30.0",
- "wayland-protocols-wlr",
  "xkbcommon",
 ]
 
@@ -2051,6 +2048,21 @@ name = "libc"
 version = "0.2.147"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4668fb0ea861c1df094127ac5f1da3409a82116a4ba74fca2e58ef927159bb3"
+
+[[package]]
+name = "libharuhishot"
+version = "0.1.0"
+dependencies = [
+ "memmap2 0.7.1",
+ "nix 0.26.2",
+ "once_cell",
+ "thiserror",
+ "tracing",
+ "tracing-subscriber",
+ "wayland-client 0.30.2",
+ "wayland-protocols 0.30.0",
+ "wayland-protocols-wlr",
+]
 
 [[package]]
 name = "libloading"

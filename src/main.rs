@@ -1,7 +1,6 @@
 use dialoguer::theme::ColorfulTheme;
 use dialoguer::FuzzySelect;
 use wayland_client::protocol::wl_output;
-use wayland_client::Connection;
 
 use clap::{arg, Arg, ArgAction, Command};
 
@@ -11,10 +10,8 @@ mod filewriter;
 mod slintbackend;
 #[cfg(feature = "sway")]
 mod swayloop;
-mod wlrbackend;
-mod wlrcaptruestate;
 
-use wlrcaptruestate::AppData;
+use libharuhishot::HarihiShotState;
 // This struct represents the state of our app. This simple app does not
 // need any state, by this type still supports the `Dispatch` implementations.
 
@@ -250,65 +247,30 @@ fn main() {
 }
 
 fn take_screenshot(option: ClapOption) {
-    // Create a Wayland connection by connecting to the server through the
-    // environment-provided configuration.
-    let conn = Connection::connect_to_env().unwrap();
-
-    // Retrieve the WlDisplay Wayland object from the connection. This object is
-    // the starting point of any Wayland program, from which all other objects will
-    // be created.
-    let display = conn.display();
-
-    // Create an event queue for our event processing
-    let mut event_queue = conn.new_event_queue();
-    // An get its handle to associated new objects to it
-    let qh = event_queue.handle();
-
-    // Create a wl_registry object by sending the wl_display.get_registry request
-    // This method takes two arguments: a handle to the queue the newly created
-    // wl_registry will be assigned to, and the user-data that should be associated
-    // with this registry (here it is () as we don't need user-data).
-    let _registry = display.get_registry(&qh, ());
-
-    // At this point everything is ready, and we just need to wait to receive the events
-    // from the wl_registry, our callback will print the advertized globals.
-    let mut state = AppData::new();
-
-    // globals.
-    event_queue.roundtrip(&mut state).unwrap();
+    let mut state = HarihiShotState::init().unwrap();
 
     if state.is_ready() {
         tracing::info!("All data is ready");
 
-        let xdg_output_manager = state.xdg_output_manager.clone().unwrap();
-        for i in 0..state.displays.len() {
-            xdg_output_manager.get_xdg_output(&state.displays[i], &qh, ());
-            event_queue.roundtrip(&mut state).unwrap();
-        }
-        let shoot_choosed_screen =
-            |usestdout: bool,
-             id: usize,
-             state: &mut AppData,
-             event_queue: &mut wayland_client::EventQueue<AppData>| {
-                let bufferdata = state.capture_output_frame(
-                    &state.displays[id].clone(),
-                    event_queue,
-                    state.display_logic_size[id],
-                    state.display_transform[id],
-                    None,
-                );
-                match bufferdata {
-                    Some(data) => filewriter::write_to_file(data, usestdout),
-                    None => tracing::error!("Nothing get, check the log"),
-                }
-            };
+        let shoot_choosed_screen = |usestdout: bool, id: usize, state: &mut HarihiShotState| {
+            let bufferdata = state.capture_output_frame(
+                &state.displays[id].clone(),
+                state.display_logic_size[id],
+                state.display_transform[id],
+                None,
+            );
+            match bufferdata {
+                Ok(Some(data)) => filewriter::write_to_file(data, usestdout),
+                Ok(None) => tracing::error!("Nothing get, check the log"),
+                Err(e) => eprintln!("Error: {e}"),
+            }
+        };
 
         let shot_with_regions =
             |usestdout: bool,
-             state: &mut AppData,
+             state: &mut HarihiShotState,
              ids: Vec<usize>,
-             posinformation: (i32, i32, i32, i32),
-             event_queue: &mut wayland_client::EventQueue<AppData>| {
+             posinformation: (i32, i32, i32, i32)| {
                 let (pos_x, pos_y, width, height) = posinformation;
                 let mut bufferdatas = Vec::new();
                 for id in ids {
@@ -317,9 +279,8 @@ fn take_screenshot(option: ClapOption) {
                     if width == 0 || height == 0 {
                         continue;
                     }
-                    let Some(bufferdata) = state.capture_output_frame(
+                    let Ok(Some(bufferdata)) = state.capture_output_frame(
                         &state.displays[id].clone(),
-                        event_queue,
                         (width, height),
                         state.display_transform[id],
                         Some((pos_x, pos_y, width, height)),
@@ -350,7 +311,7 @@ fn take_screenshot(option: ClapOption) {
             ClapOption::ShotWithFullScreen { usestdout } => {
                 let region = state.get_whole_screens_pos_and_region();
                 let allscreens: Vec<usize> = (0..state.displays.len()).collect();
-                shot_with_regions(usestdout, &mut state, allscreens, region, &mut event_queue);
+                shot_with_regions(usestdout, &mut state, allscreens, region);
             }
             ClapOption::ShotWithCoosedScreen { screen, usestdout } => {
                 let screen = match screen {
@@ -385,7 +346,7 @@ fn take_screenshot(option: ClapOption) {
                 };
                 match state.get_select_id(screen) {
                     Some(id) => {
-                        shoot_choosed_screen(usestdout, id, &mut state, &mut event_queue);
+                        shoot_choosed_screen(usestdout, id, &mut state);
                     }
                     None => {
                         #[cfg(feature = "notify")]
@@ -409,9 +370,8 @@ fn take_screenshot(option: ClapOption) {
             ClapOption::ShotWithColor { pos_x, pos_y } => {
                 if let Some(id) = state.get_pos_display_id((pos_x, pos_y)) {
                     let (pos_x, pos_y) = state.get_real_pos((pos_x, pos_y), id);
-                    if let Some(bufferdata) = state.capture_output_frame(
+                    if let Ok(Some(bufferdata)) = state.capture_output_frame(
                         &state.displays[id].clone(),
-                        &mut event_queue,
                         (1, 1),
                         wl_output::Transform::Normal,
                         Some((pos_x, pos_y, 1, 1)),
@@ -432,10 +392,10 @@ fn take_screenshot(option: ClapOption) {
                     slintbackend::SlintSelection::GlobalScreen => {
                         let region = state.get_whole_screens_pos_and_region();
                         let allscreens: Vec<usize> = (0..state.displays.len()).collect();
-                        shot_with_regions(false, &mut state, allscreens, region, &mut event_queue);
+                        shot_with_regions(false, &mut state, allscreens, region);
                     }
                     slintbackend::SlintSelection::Selection(index) => {
-                        shoot_choosed_screen(false, index as usize, &mut state, &mut event_queue);
+                        shoot_choosed_screen(false, index as usize, &mut state);
                     }
                     slintbackend::SlintSelection::Slurp => {
                         let Ok(output) = std::process::Command::new("slurp")
@@ -467,7 +427,6 @@ fn take_screenshot(option: ClapOption) {
                                     &mut state,
                                     ids,
                                     (pos_x, pos_y, width, height),
-                                    &mut event_queue,
                                 );
                             }
                             None => {
@@ -509,13 +468,7 @@ fn take_screenshot(option: ClapOption) {
                 usestdout,
             } => match state.get_pos_display_ids((pos_x, pos_y), (width, height)) {
                 Some(ids) => {
-                    shot_with_regions(
-                        usestdout,
-                        &mut state,
-                        ids,
-                        (pos_x, pos_y, width, height),
-                        &mut event_queue,
-                    );
+                    shot_with_regions(usestdout, &mut state, ids, (pos_x, pos_y, width, height));
                 }
                 None => {
                     tracing::error!("Pos is over the screen");
@@ -555,7 +508,6 @@ fn take_screenshot(option: ClapOption) {
                                 &mut state,
                                 ids,
                                 (pos_x, pos_y, width, height),
-                                &mut event_queue,
                             );
                         }
                         None => {

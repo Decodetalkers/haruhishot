@@ -6,7 +6,7 @@ use wayland_client::protocol::wl_output;
 use crate::constenv::SAVEPATH;
 #[cfg(feature = "notify")]
 use crate::constenv::{FAILED_IMAGE, SUCCESSED_IMAGE, TIMEOUT};
-use crate::wlrbackend::FrameInfo;
+use libharuhishot::FrameInfo;
 
 use std::io::Write;
 use std::io::{stdout, BufWriter, Cursor};
