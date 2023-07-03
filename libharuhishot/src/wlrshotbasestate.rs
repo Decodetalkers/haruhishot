@@ -20,7 +20,6 @@ use wayland_client::EventQueue;
 // This struct represents the state of our app. This simple app does not
 // need any state, by this type still supports the `Dispatch` implementations.
 
-
 /// contain base information needed for wlr screencopy
 pub struct HaruhiShotState {
     // global information
@@ -81,12 +80,12 @@ impl HaruhiShotState {
             .roundtrip(&mut state)
             .map_err(|_| HaruhiError::InitFailed("Error During first roundtrip".to_string()))?;
         let xdg_output_manager = state.xdg_output_manager.clone().unwrap();
-        for i in 0..state.displays.len() {
-            xdg_output_manager.get_xdg_output(&state.displays[i], &qh, ());
-            event_queue
-                .roundtrip(&mut state)
-                .map_err(|_| HaruhiError::InitFailed("Error During xdg_output init".to_string()))?;
+        for display in state.displays.iter() {
+            xdg_output_manager.get_xdg_output(display, &qh, ());
         }
+        event_queue
+            .roundtrip(&mut state)
+            .map_err(|_| HaruhiError::InitFailed("Error During xdg_output init".to_string()))?;
         state.queue = Some(Arc::new(Mutex::new(event_queue)));
 
         Ok(state)
