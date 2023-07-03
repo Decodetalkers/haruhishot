@@ -1551,7 +1551,7 @@ dependencies = [
 
 [[package]]
 name = "haruhishot"
-version = "0.3.11"
+version = "0.3.12"
 dependencies = [
  "clap",
  "dialoguer",
@@ -2039,7 +2039,7 @@ checksum = "b4668fb0ea861c1df094127ac5f1da3409a82116a4ba74fca2e58ef927159bb3"
 
 [[package]]
 name = "libharuhishot"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "memmap2 0.7.1",
  "nix 0.26.2",
