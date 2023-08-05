@@ -202,8 +202,8 @@ pub fn write_to_file_mutisource(bufferdatas: Vec<FrameInfo>, usestdout: bool) {
         let mut buff = Cursor::new(Vec::new());
         use image::imageops::overlay;
         let mut image = images[0].clone();
-        for aimage in images {
-            overlay(&mut image, &aimage, 0, 0);
+        for aimage in images.iter().skip(1) {
+            overlay(&mut image, aimage, 0, 0);
         }
         if let Err(_e) = image.write_to(&mut buff, image::ImageFormat::Png) {
             #[cfg(feature = "notify")]
@@ -250,8 +250,8 @@ pub fn write_to_file_mutisource(bufferdatas: Vec<FrameInfo>, usestdout: bool) {
         let filefullname = file.to_str().unwrap();
         use image::imageops::overlay;
         let mut image = images[0].clone();
-        for aimage in images {
-            overlay(&mut image, &aimage, 0, 0);
+        for aimage in images.iter().skip(1) {
+            overlay(&mut image, aimage, 0, 0);
         }
         if image.save(&file).is_ok() {
             tracing::info!("Image saved to {}", filefullname);
