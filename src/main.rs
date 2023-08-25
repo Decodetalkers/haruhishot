@@ -67,19 +67,17 @@ fn parseslurp(posmessage: String) -> SlurpParseResult {
     }
     let position: Vec<&str> = posmessage[0].split(',').collect();
 
-    let Ok(pos_x) = position[0]
-        .parse::<i32>() else {
-            tracing::error!("Error parse, Cannot get pos_x");
-            #[cfg(feature = "notify")]
-            notify_error("Error parse, Cannot get pos_x");
-            return SlurpParseResult::MeetError;
+    let Ok(pos_x) = position[0].parse::<i32>() else {
+        tracing::error!("Error parse, Cannot get pos_x");
+        #[cfg(feature = "notify")]
+        notify_error("Error parse, Cannot get pos_x");
+        return SlurpParseResult::MeetError;
     };
-    let Ok(pos_y) = position[1]
-       .parse::<i32>() else {
-           tracing::error!("Error parse, Cannot get pos_y");
-           #[cfg(feature = "notify")]
-           notify_error("Error parse, Cannot get pos_y");
-           return SlurpParseResult::MeetError;
+    let Ok(pos_y) = position[1].parse::<i32>() else {
+        tracing::error!("Error parse, Cannot get pos_y");
+        #[cfg(feature = "notify")]
+        notify_error("Error parse, Cannot get pos_y");
+        return SlurpParseResult::MeetError;
     };
 
     let map: Vec<&str> = posmessage[1].split('x').collect();
@@ -87,19 +85,17 @@ fn parseslurp(posmessage: String) -> SlurpParseResult {
         eprintln!("Error input");
         return SlurpParseResult::MeetError;
     }
-    let Ok(width) = map[0]
-        .parse::<i32>() else {
-            tracing::error!("Error parse, cannot get width");
-            #[cfg(feature = "notify")]
-            notify_error("Error parse, Cannot get width");
-            return SlurpParseResult::MeetError;
+    let Ok(width) = map[0].parse::<i32>() else {
+        tracing::error!("Error parse, cannot get width");
+        #[cfg(feature = "notify")]
+        notify_error("Error parse, Cannot get width");
+        return SlurpParseResult::MeetError;
     };
-    let Ok(height) = map[1]
-        .parse::<i32>() else {
-            tracing::error!("Error parse, cannot get height");
-            #[cfg(feature = "notify")]
-            notify_error("Error parse, Cannot get height");
-            return SlurpParseResult::MeetError;
+    let Ok(height) = map[1].parse::<i32>() else {
+        tracing::error!("Error parse, cannot get height");
+        #[cfg(feature = "notify")]
+        notify_error("Error parse, Cannot get height");
+        return SlurpParseResult::MeetError;
     };
     SlurpParseResult::Finished(pos_x, pos_y, width, height)
 }
@@ -200,7 +196,8 @@ fn main() {
             if !usestdout {
                 tracing_subscriber::fmt::init();
             }
-            let SlurpParseResult::Finished(pos_x, pos_y, width, height) = parseslurp(posmessage) else {
+            let SlurpParseResult::Finished(pos_x, pos_y, width, height) = parseslurp(posmessage)
+            else {
                 return;
             };
             take_screenshot(ClapOption::ShotWithSlurp {
@@ -288,14 +285,20 @@ fn take_screenshot(option: ClapOption) {
                         if usestdout {
                             tracing_subscriber::fmt().init();
                         }
-                        tracing::error!("Cannot get frame from screen: {} ",  state.display_names[id]);
+                        tracing::error!(
+                            "Cannot get frame from screen: {} ",
+                            state.display_names[id]
+                        );
                         #[cfg(feature = "notify")]
                         {
                             use crate::constenv::{FAILED_IMAGE, TIMEOUT};
                             use notify_rust::Notification;
                             let _ = Notification::new()
                                 .summary("FileSavedFailed")
-                                .body(&format!("Cannot get frame from screen: {}", state.display_names[id]))
+                                .body(&format!(
+                                    "Cannot get frame from screen: {}",
+                                    state.display_names[id]
+                                ))
                                 .icon(FAILED_IMAGE)
                                 .timeout(TIMEOUT)
                                 .show();
@@ -398,26 +401,27 @@ fn take_screenshot(option: ClapOption) {
                         shoot_choosed_screen(false, index as usize, &mut state);
                     }
                     slintbackend::SlintSelection::Slurp => {
-                        let Ok(output) = std::process::Command::new("slurp")
-                            .arg("-d")
-                            .output() else {
-                                tracing::error!("Maybe Slurp Missing?");
-                                #[cfg(feature = "notify")]
-                                {
-                                    use crate::constenv::{FAILED_IMAGE, TIMEOUT};
-                                    use notify_rust::Notification;
-                                    let _ = Notification::new()
-                                        .summary("FileSavedFailed")
-                                        .body("Maybe Slurp Missing?")
-                                        .icon(FAILED_IMAGE)
-                                        .timeout(TIMEOUT)
-                                        .show();
-                                }
-                                return;
+                        let Ok(output) = std::process::Command::new("slurp").arg("-d").output()
+                        else {
+                            tracing::error!("Maybe Slurp Missing?");
+                            #[cfg(feature = "notify")]
+                            {
+                                use crate::constenv::{FAILED_IMAGE, TIMEOUT};
+                                use notify_rust::Notification;
+                                let _ = Notification::new()
+                                    .summary("FileSavedFailed")
+                                    .body("Maybe Slurp Missing?")
+                                    .icon(FAILED_IMAGE)
+                                    .timeout(TIMEOUT)
+                                    .show();
+                            }
+                            return;
                         };
                         let message = output.stdout;
                         let posmessage = String::from_utf8_lossy(&message).to_string();
-                        let SlurpParseResult::Finished(pos_x, pos_y , width , height ) = parseslurp(posmessage) else {
+                        let SlurpParseResult::Finished(pos_x, pos_y, width, height) =
+                            parseslurp(posmessage)
+                        else {
                             return;
                         };
                         match state.get_pos_display_ids((pos_x, pos_y), (width, height)) {
