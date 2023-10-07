@@ -8,11 +8,10 @@ use wayland_protocols_wlr::screencopy::v1::client::zwlr_screencopy_frame_v1::{
     self, ZwlrScreencopyFrameV1,
 };
 
-use std::os::fd::FromRawFd;
+use std::os::fd::{AsFd, AsRawFd, OwnedFd};
 use std::{
     ffi::CStr,
     fs::File,
-    os::unix::prelude::RawFd,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -116,7 +115,7 @@ impl WlrCopyStateInfo {
 }
 
 /// capture_output_frame.
-fn create_shm_fd() -> std::io::Result<RawFd> {
+fn create_shm_fd() -> std::io::Result<OwnedFd> {
     // Only try memfd on linux and freebsd.
     #[cfg(any(target_os = "linux", target_os = "freebsd"))]
     loop {
@@ -130,7 +129,7 @@ fn create_shm_fd() -> std::io::Result<RawFd> {
                 // F_SEAL_SRHINK = File cannot be reduced in size.
                 // F_SEAL_SEAL = Prevent further calls to fcntl().
                 let _ = fcntl::fcntl(
-                    fd,
+                    fd.as_raw_fd(),
                     fcntl::F_ADD_SEALS(
                         fcntl::SealFlag::F_SEAL_SHRINK | fcntl::SealFlag::F_SEAL_SEAL,
                     ),
@@ -166,7 +165,7 @@ fn create_shm_fd() -> std::io::Result<RawFd> {
         ) {
             Ok(fd) => match mman::shm_unlink(mem_file_handle.as_str()) {
                 Ok(_) => return Ok(fd),
-                Err(errno) => match unistd::close(fd) {
+                Err(errno) => match unistd::close(fd.as_raw_fd()) {
                     Ok(_) => return Err(std::io::Error::from(errno)),
                     Err(errno) => return Err(std::io::Error::from(errno)),
                 },
@@ -350,14 +349,15 @@ impl HaruhiShotState {
                 })?;
                 let frame_bytes = frame_format.stride * frame_format.height;
                 let mem_fd = create_shm_fd()?;
-                let mem_file = unsafe { File::from_raw_fd(mem_fd) };
+                let mem_file = File::from(mem_fd);
                 mem_file.set_len(frame_bytes as u64)?;
 
-                let shm_pool =
-                    self.shm
-                        .as_ref()
-                        .unwrap()
-                        .create_pool(mem_fd, frame_bytes as i32, &qh, ());
+                let shm_pool = self.shm.as_ref().unwrap().create_pool(
+                    mem_file.as_fd(),
+                    frame_bytes as i32,
+                    &qh,
+                    (),
+                );
 
                 let buffer = shm_pool.create_buffer(
                     0,
