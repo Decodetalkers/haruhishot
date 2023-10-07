@@ -16,6 +16,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+    - name: Install
+      run: sudo apt install -y libxkbcommon-dev
     - name: Build
       run: cargo build --features=all --verbose
     - name: Run tests
