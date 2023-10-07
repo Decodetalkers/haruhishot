@@ -3,6 +3,11 @@ use sctk::{
     delegate_compositor, delegate_keyboard, delegate_layer, delegate_output, delegate_registry,
     delegate_seat, delegate_shm,
     output::{OutputHandler, OutputState},
+    reexports::client::{
+        globals::registry_queue_init,
+        protocol::{wl_keyboard, wl_output, wl_seat, wl_shm, wl_surface},
+        Connection, QueueHandle,
+    },
     registry::{ProvidesRegistryState, RegistryState},
     registry_handlers,
     seat::{
@@ -19,11 +24,6 @@ use sctk::{
     shm::{slot::SlotPool, Shm, ShmHandler},
 };
 use std::convert::TryInto;
-use wayland_client::{
-    globals::registry_queue_init,
-    protocol::{wl_keyboard, wl_output, wl_seat, wl_shm, wl_surface},
-    Connection, QueueHandle,
-};
 use xkbcommon::xkb::keysyms;
 
 use once_cell::sync::Lazy;
