@@ -1,5 +1,5 @@
 project('haruhishot', 'rust',
-  version: '0.3.16',
+  version: '0.3.17',
   meson_version: '>= 0.60'
 )
 
