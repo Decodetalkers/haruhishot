@@ -1,10 +1,9 @@
 project('haruhishot', 'rust',
-  version: '0.3.17',
+  version: '0.3.18',
   meson_version: '>= 0.60'
 )
 
 dependency('wayland-client')
-dependency('wlroots')
 
 cargo = find_program('cargo', version: '>= 1.66')
 
