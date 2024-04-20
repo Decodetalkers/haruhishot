@@ -180,6 +180,15 @@ impl CompositorHandler for SimpleLayer {
     ) {
         self.draw(qh);
     }
+
+    fn transform_changed(
+        &mut self,
+        conn: &Connection,
+        qh: &QueueHandle<Self>,
+        surface: &wl_surface::WlSurface,
+        new_transform: wl_output::Transform,
+    ) {
+    }
 }
 
 impl OutputHandler for SimpleLayer {
@@ -290,7 +299,7 @@ impl KeyboardHandler for SimpleLayer {
         surface: &wl_surface::WlSurface,
         _: u32,
         _: &[u32],
-        _keysyms: &[u32],
+        _keysyms: &[xkbcommon::xkb::Keysym],
     ) {
         if self.layer.wl_surface() == surface {
             self.keyboard_focus = true;
@@ -319,7 +328,7 @@ impl KeyboardHandler for SimpleLayer {
         event: KeyEvent,
     ) {
         // press 'esc' to exit
-        if event.keysym == keysyms::KEY_Escape {
+        if event.keysym == keysyms::KEY_Escape.into() {
             tracing::info!("Exit");
             self.exit = true;
         }
