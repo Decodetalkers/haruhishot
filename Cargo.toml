@@ -1,6 +1,6 @@
 [package]
 name = "haruhishot"
-version = "0.3.18"
+version = "0.3.19"
 edition = "2021"
 build = "build.rs"
 
@@ -10,7 +10,7 @@ members = [".", "libharuhishot"]
 
 [dependencies]
 
-libharuhishot = { path = "libharuhishot", version = "0.2.3" }
+libharuhishot = { path = "libharuhishot", version = "0.2.5" }
 
 #wayland-client = "=0.30.0-beta.13"
 
