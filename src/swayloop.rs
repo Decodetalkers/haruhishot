@@ -98,8 +98,8 @@ pub fn swaylayer() {
         layer_shell.create_layer_surface(&qh, surface, Layer::Top, Some("simple_layer"), None);
     // Configure the layer surface, providing things like the anchor on screen, desired size and the keyboard
     // interactivity
-    layer.set_anchor(Anchor::BOTTOM);
-    layer.set_keyboard_interactivity(KeyboardInteractivity::OnDemand);
+    layer.set_anchor(Anchor::TOP);
+    layer.set_keyboard_interactivity(KeyboardInteractivity::Exclusive);
     layer.set_size(256, 256);
 
     // In order for the layer surface to be mapped, we need to perform an initial commit with no attached\
@@ -183,10 +183,10 @@ impl CompositorHandler for SimpleLayer {
 
     fn transform_changed(
         &mut self,
-        conn: &Connection,
-        qh: &QueueHandle<Self>,
-        surface: &wl_surface::WlSurface,
-        new_transform: wl_output::Transform,
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+        _surface: &wl_surface::WlSurface,
+        _new_transform: wl_output::Transform,
     ) {
     }
 }
