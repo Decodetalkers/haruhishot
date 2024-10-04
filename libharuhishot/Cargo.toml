@@ -1,11 +1,11 @@
 [package]
 name = "libharuhishot"
-version = "0.2.5"
-edition = "2021"
-license = "MIT"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
 description = "impl screencopy for wayland"
-authors = ["Decodertalkers <aakari@tutanota.com>"]
-homepage = "https://github.com/Decodetalkers/haruhishot"
+authors.workspace = true
+homepage.workspace = true
 documentation = "https://docs.rs/libharuhishot/"
 keywords = ["wayland"]
 readme = "README.md"
@@ -23,7 +23,7 @@ wayland-protocols = { version = "0.32.4", default-features = false, features = [
 wayland-protocols-wlr = { version = "0.3.4", default-features = false, features = [
 	"client",
 ] }
-wayland-client = "0.31"
+wayland-client.workspace = true
 #wayland-client = "=0.30.0-beta.13"
 
 nix = { version = "0.29.0", features = ["fs", "mman"] }
@@ -34,3 +34,5 @@ memmap2 = "0.9.5"
 tracing = "0.1.40"
 
 thiserror = "1.0.64"
+
+image.workspace = true

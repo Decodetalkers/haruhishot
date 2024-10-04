@@ -14,4 +14,6 @@ pub enum HaruhiError {
     QueueError(String),
     #[error("Error in write image in shm")]
     ShmError(#[from] io::Error),
+    #[error("Not Support format")]
+    NotSupportFormat
 }

@@ -1,15 +1,12 @@
-project('haruhishot', 'rust',
-  version: '0.3.19',
-  meson_version: '>= 0.60'
-)
+project('haruhishot', 'rust', version: '0.4.0', meson_version: '>= 0.60')
 
 dependency('wayland-client')
 
 cargo = find_program('cargo', version: '>= 1.66')
 
-rustc = find_program('rustc', version: '>= 1.66')
+find_program('rustc', version: '>= 1.66')
 
-command = [ cargo , 'build']
+command = [cargo, 'build']
 
 if get_option('enable-notify')
   command += ['--features', 'notify']
@@ -34,7 +31,7 @@ command += [
   '&&',
   'cp',
   meson.global_source_root() / 'target' / targetdir / meson.project_name(),
-  '@OUTPUT@'
+  '@OUTPUT@',
 ]
 
 prefix = get_option('prefix')
@@ -42,31 +39,24 @@ bindir = prefix / get_option('bindir')
 datadir = prefix / get_option('datadir')
 icondir = datadir / 'pixmaps'
 
-haruhishot_target = custom_target(meson.project_name(),
+custom_target(
+  meson.project_name(),
   output: meson.project_name(),
   build_by_default: true,
   install: true,
   install_dir: bindir,
   console: true,
-  command: command
+  command: command,
 )
 
 if get_option('enable-notify')
-  install_data('misc/haruhi_failed.png',
-    install_dir: icondir
-  )
-  install_data('misc/haruhi_successed.png',
-    install_dir: icondir
-  )
+  install_data('misc/haruhi_failed.png', install_dir: icondir)
+  install_data('misc/haruhi_successed.png', install_dir: icondir)
 endif
 
 if get_option('man-pages')
   manpage = get_option('mandir')
-  scdoc = dependency(
-    'scdoc',
-    version: '>= 1.9.7',
-    native: true
-  )
+  scdoc = dependency('scdoc', version: '>= 1.9.7', native: true)
 
   if scdoc.found()
     custom_target(
@@ -77,18 +67,16 @@ if get_option('man-pages')
       feed: true,
       capture: true,
       install: true,
-      install_dir: prefix / manpage / 'man1'
+      install_dir: prefix / manpage / 'man1',
     )
   endif
 endif
 
 # Install desktop entry
 if get_option('desktop-entry')
-  install_data('misc/haruhishot.desktop',
-    install_dir: datadir / 'applications'
-  )
-  install_data('misc/haruhishot.svg',
-    install_dir: datadir / 'icons' / 'hicolor' / 'scalable' / 'apps'
+  install_data('misc/haruhishot.desktop', install_dir: datadir / 'applications')
+  install_data(
+    'misc/haruhishot.svg',
+    install_dir: datadir / 'icons' / 'hicolor' / 'scalable' / 'apps',
   )
 endif
-

@@ -1,3 +1,4 @@
+use image::ColorType;
 use wayland_client::protocol::wl_buffer::WlBuffer;
 use wayland_client::protocol::wl_output::{self, WlOutput};
 use wayland_client::protocol::wl_shm::{self, Format};
@@ -21,6 +22,7 @@ use nix::{
     unistd,
 };
 
+use crate::convert;
 use memmap2::MmapMut;
 
 use crate::haruhierror::HaruhiError;
@@ -81,6 +83,8 @@ pub struct FrameInfo {
     pub frameformat: FrameFormat,
     /// frame_mmap: contain the information of an image
     pub frame_mmap: MmapMut,
+
+    pub frame_color_type: ColorType,
     /// transform: how the screen is layed
     pub transform: wl_output::Transform,
     /// realwidth: same to above
@@ -321,11 +325,17 @@ impl HaruhiShotState {
                 height,
             } => manager.capture_output_region(0, output, x, y, width, height, &qh, ()),
         };
-        let mut frameformat = None;
-        let mut frame_mmap = None;
+        let mut frameformat: Option<FrameFormat> = None;
+        let mut frame_mmap: Option<MmapMut> = None;
+        let frame_color_type;
         loop {
             self.block_dispatch()?;
             if self.finished() {
+                let frame_mmap = frame_mmap.as_mut().unwrap();
+                let frame_format = frameformat.as_ref().unwrap();
+                let frame_color_type_converter = convert::create_converter(frame_format.format)
+                    .ok_or(HaruhiError::NotSupportFormat)?;
+                frame_color_type = frame_color_type_converter.convert_inplace(frame_mmap);
                 break;
             }
             if self.is_pedding() {
@@ -381,6 +391,7 @@ impl HaruhiShotState {
                 let output = FrameInfo {
                     frameformat: frameformat.unwrap(),
                     frame_mmap: frame_mmap.unwrap(),
+                    frame_color_type,
                     transform,
                     realwidth: realwidth as u32,
                     realheight: realheight as u32,

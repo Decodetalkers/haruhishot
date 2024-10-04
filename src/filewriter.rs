@@ -19,7 +19,7 @@ pub fn get_color(bufferdata: FrameInfo) {
             &bufferdata.frame_mmap,
             bufferdata.frameformat.width,
             bufferdata.frameformat.height,
-            image::ColorType::Rgba8.into(),
+            bufferdata.frame_color_type.into(),
         )
         .unwrap();
     let image =
@@ -43,7 +43,7 @@ pub fn write_to_file(bufferdata: FrameInfo, usestdout: bool) {
             &bufferdata.frame_mmap,
             bufferdata.frameformat.width,
             bufferdata.frameformat.height,
-            image::ColorType::Rgba8.into(),
+            bufferdata.frame_color_type.into(),
         ) {
             #[cfg(feature = "notify")]
             let _ = Notification::new()
@@ -96,7 +96,7 @@ pub fn write_to_file(bufferdata: FrameInfo, usestdout: bool) {
                 &bufferdata.frame_mmap,
                 bufferdata.frameformat.width,
                 bufferdata.frameformat.height,
-                image::ColorType::Rgba8.into(),
+                bufferdata.frame_color_type.into(),
             )
             .is_ok()
         {
@@ -183,7 +183,7 @@ pub fn write_to_file_mutisource(bufferdatas: Vec<FrameInfo>, usestdout: bool) {
                 &buffer.frame_mmap,
                 buffer.frameformat.width,
                 buffer.frameformat.height,
-                image::ColorType::Rgba8.into(),
+                buffer.frame_color_type.into(),
             )
             .unwrap();
         let image =

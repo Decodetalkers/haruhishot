@@ -24,6 +24,7 @@
 pub mod haruhierror;
 pub mod wlrcopystate;
 pub mod wlrshotbasestate;
+pub mod convert;
 
 pub use wlrcopystate::{FrameFormat, FrameInfo};
 pub use wlrshotbasestate::HaruhiShotState;
