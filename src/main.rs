@@ -173,13 +173,14 @@ fn main() {
             .long_flag("window")
             .about("select window"),
     );
+    tracing_subscriber::fmt()
+        .with_writer(std::io::stderr)
+        .init();
     let matches = command.get_matches();
     match matches.subcommand() {
         Some(("output", submatchs)) => {
             let usestdout = submatchs.get_flag("stdout");
-            if !usestdout {
-                tracing_subscriber::fmt::init();
-            }
+
             let screen = submatchs
                 .get_one::<String>("Screen")
                 .map(|screen| screen.to_string());
@@ -193,9 +194,6 @@ fn main() {
                 .to_string();
 
             let usestdout = submatchs.get_flag("stdout");
-            if !usestdout {
-                tracing_subscriber::fmt::init();
-            }
             let SlurpParseResult::Finished(pos_x, pos_y, width, height) = parseslurp(posmessage)
             else {
                 return;
@@ -211,9 +209,6 @@ fn main() {
         Some(("list_outputs", _)) => take_screenshot(ClapOption::ShowInfo),
         Some(("global", submatchs)) => {
             let usestdout = submatchs.get_flag("stdout");
-            if !usestdout {
-                tracing_subscriber::fmt::init();
-            }
             take_screenshot(ClapOption::ShotWithFullScreen { usestdout });
         }
         Some(("color", submatchs)) => {
@@ -224,18 +219,15 @@ fn main() {
             let SlurpParseResult::Finished(pos_x, pos_y, _, _) = parseslurp(posmessage) else {
                 return;
             };
-            tracing_subscriber::fmt().init();
             take_screenshot(ClapOption::ShotWithColor { pos_x, pos_y })
         }
         #[cfg(feature = "gui")]
         Some(("gui", _)) => {
-            tracing_subscriber::fmt::init();
             take_screenshot(ClapOption::ShotWithGui);
             //slintbackend::selectgui();
         }
         #[cfg(feature = "sway")]
         Some(("window", _)) => {
-            tracing_subscriber::fmt::init();
             take_screenshot(ClapOption::ShotWindow);
         }
         _ => unimplemented!(),
@@ -282,9 +274,6 @@ fn take_screenshot(option: ClapOption) {
                         state.display_transform[id],
                         Some((pos_x, pos_y, width, height)),
                     ) else {
-                        if usestdout {
-                            tracing_subscriber::fmt().init();
-                        }
                         tracing::error!(
                             "Cannot get frame from screen: {} ",
                             state.display_names[id]
@@ -327,9 +316,6 @@ fn take_screenshot(option: ClapOption) {
                             .items(&names[..])
                             .interact()
                         else {
-                            if usestdout {
-                                tracing_subscriber::fmt().init();
-                            }
                             #[cfg(feature = "notify")]
                             {
                                 use crate::constenv::{FAILED_IMAGE, TIMEOUT};
@@ -363,9 +349,7 @@ fn take_screenshot(option: ClapOption) {
                                 .timeout(TIMEOUT)
                                 .show();
                         }
-                        if usestdout {
-                            tracing_subscriber::fmt().init();
-                        }
+
                         tracing::error!("Cannot find screen");
                     }
                 }
