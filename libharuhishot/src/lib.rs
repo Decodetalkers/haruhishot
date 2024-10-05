@@ -3,7 +3,7 @@
 //! I also learn a lot. I like my program very much, because it makes me feel alive. Wayshot is a
 //! good program, please help them.
 //!
-//! The lib is simple enough to use, you can take the haruhishot for example, simple useage is like
+//! The lib is simple enough to use, you can take the haruhishot for example, simple usage is like
 //!
 //! ```rust, no_run
 //! use libharuhishot::HaruhiShotState;

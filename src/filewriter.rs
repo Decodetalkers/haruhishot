@@ -5,7 +5,7 @@ use notify_rust::Notification;
 
 use crate::constenv::SAVEPATH;
 #[cfg(feature = "notify")]
-use crate::constenv::{FAILED_IMAGE, SUCCESSED_IMAGE, TIMEOUT};
+use crate::constenv::{FAILED_IMAGE, SUCCEED_IMAGE, TIMEOUT};
 use libharuhishot::FrameInfo;
 
 use std::io::Write;
@@ -70,7 +70,7 @@ pub fn write_to_file(bufferdata: FrameInfo, usestdout: bool) {
                     let _ = Notification::new()
                         .summary("Screenshot")
                         .body("Screenshot Succeed")
-                        .icon(SUCCESSED_IMAGE)
+                        .icon(SUCCEED_IMAGE)
                         .timeout(TIMEOUT)
                         .show();
                 }
@@ -105,7 +105,7 @@ pub fn write_to_file(bufferdata: FrameInfo, usestdout: bool) {
             let _ = Notification::new()
                 .summary("FileSaved")
                 .body(&format!("File saved to {}", filefullname))
-                .icon(SUCCESSED_IMAGE)
+                .icon(SUCCEED_IMAGE)
                 .timeout(TIMEOUT)
                 .show();
             #[cfg(feature = "notify")]
@@ -156,18 +156,18 @@ where
             image::imageops::resize(&image, width, height, image::imageops::FilterType::Gaussian)
         }
         wl_output::Transform::Flipped90 => {
-            let filp = image::imageops::flip_horizontal(image);
-            let image = image::imageops::rotate90(&filp);
+            let flip = image::imageops::flip_horizontal(image);
+            let image = image::imageops::rotate90(&flip);
             image::imageops::resize(&image, width, height, image::imageops::FilterType::Gaussian)
         }
         wl_output::Transform::Flipped180 => {
-            let filp = image::imageops::flip_horizontal(image);
-            let image = image::imageops::rotate180(&filp);
+            let flip = image::imageops::flip_horizontal(image);
+            let image = image::imageops::rotate180(&flip);
             image::imageops::resize(&image, width, height, image::imageops::FilterType::Gaussian)
         }
         wl_output::Transform::Flipped270 => {
-            let filp = image::imageops::flip_horizontal(image);
-            let image = image::imageops::rotate270(&filp);
+            let flip = image::imageops::flip_horizontal(image);
+            let image = image::imageops::rotate270(&flip);
             image::imageops::resize(&image, width, height, image::imageops::FilterType::Gaussian)
         }
         _ => image::imageops::resize(image, width, height, image::imageops::FilterType::Gaussian),
@@ -231,7 +231,7 @@ pub fn write_to_file_mutisource(bufferdatas: Vec<FrameInfo>, usestdout: bool) {
             let _ = Notification::new()
                 .summary("Screenshot")
                 .body("Screenshot Succeed")
-                .icon(SUCCESSED_IMAGE)
+                .icon(SUCCEED_IMAGE)
                 .timeout(TIMEOUT)
                 .show();
         };
@@ -259,7 +259,7 @@ pub fn write_to_file_mutisource(bufferdatas: Vec<FrameInfo>, usestdout: bool) {
             let _ = Notification::new()
                 .summary("FileSaved")
                 .body(&format!("File saved to {}", filefullname))
-                .icon(SUCCESSED_IMAGE)
+                .icon(SUCCEED_IMAGE)
                 .timeout(TIMEOUT)
                 .show();
             #[cfg(feature = "notify")]

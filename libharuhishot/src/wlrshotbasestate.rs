@@ -37,7 +37,7 @@ pub struct HaruhiShotState {
     pub display_scale: Vec<i32>,
     /// logic sizes of displays
     pub display_logic_size: Vec<(i32, i32)>,
-    /// transform fo displays
+    /// transform of displays
     pub display_transform: Vec<Transform>,
     pub(crate) shm: Option<WlShm>,
     pub(crate) wlr_screencopy: Option<ZwlrScreencopyManagerV1>,
@@ -152,7 +152,7 @@ impl HaruhiShotState {
         true
     }
 
-    /// caculate the whole screen, merge all screen together to a biggest region like
+    /// calculate the whole screen, merge all screen together to a biggest region like
     /// ```txt, no_run
     /// |---------|---------------|
     /// |         |               |
@@ -184,8 +184,8 @@ impl HaruhiShotState {
 
     /// get the display index from display_names
     pub fn get_select_id(&self, screen: String) -> Option<usize> {
-        for (i, dispay_screen) in self.display_names.iter().enumerate() {
-            if dispay_screen == &screen {
+        for (i, display_screen) in self.display_names.iter().enumerate() {
+            if display_screen == &screen {
                 return Some(i);
             }
         }

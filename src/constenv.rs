@@ -1,10 +1,10 @@
 use std::{env, fs, path::PathBuf};
 
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 const TMP: &str = "/tmp";
 
-pub static SAVEPATH: Lazy<PathBuf> = Lazy::new(|| {
+pub static SAVEPATH: LazyLock<PathBuf> = LazyLock::new(|| {
     let Ok(home) = env::var("HOME") else {
         return PathBuf::from(TMP);
     };
@@ -16,7 +16,7 @@ pub static SAVEPATH: Lazy<PathBuf> = Lazy::new(|| {
 });
 
 #[cfg(feature = "notify")]
-pub const SUCCESSED_IMAGE: &str = "haruhi_successed";
+pub const SUCCEED_IMAGE: &str = "haruhi_succeeded";
 #[cfg(feature = "notify")]
 pub const FAILED_IMAGE: &str = "haruhi_failed";
 #[cfg(feature = "notify")]

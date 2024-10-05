@@ -51,7 +51,7 @@ custom_target(
 
 if get_option('enable-notify')
   install_data('misc/haruhi_failed.png', install_dir: icondir)
-  install_data('misc/haruhi_successed.png', install_dir: icondir)
+  install_data('misc/haruhi_succeed.png.png', install_dir: icondir)
 endif
 
 if get_option('man-pages')

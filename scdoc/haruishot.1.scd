@@ -27,7 +27,7 @@ Screenshot for wlroots
 		```
 
 *global* [--stdout]
-	Take screenshot for all ther screen, this will combine all screens together
+	Take screenshot for all there screen, this will combine all screens together
 	"--stdout" is the same
 
 *gui*

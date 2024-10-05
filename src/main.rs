@@ -241,7 +241,7 @@ fn take_screenshot(option: ClapOption) {
     if state.is_ready() {
         tracing::info!("All data is ready");
 
-        let shoot_choosed_screen = |usestdout: bool, id: usize, state: &mut HaruhiShotState| {
+        let shot_chosen_screen = |usestdout: bool, id: usize, state: &mut HaruhiShotState| {
             let bufferdata = state.capture_output_frame(
                 &state.displays[id].clone(),
                 state.display_logic_size[id],
@@ -335,7 +335,7 @@ fn take_screenshot(option: ClapOption) {
                 };
                 match state.get_select_id(screen) {
                     Some(id) => {
-                        shoot_choosed_screen(usestdout, id, &mut state);
+                        shot_chosen_screen(usestdout, id, &mut state);
                     }
                     None => {
                         #[cfg(feature = "notify")]
@@ -382,7 +382,7 @@ fn take_screenshot(option: ClapOption) {
                         shot_with_regions(false, &mut state, allscreens, region);
                     }
                     slintbackend::SlintSelection::Selection(index) => {
-                        shoot_choosed_screen(false, index as usize, &mut state);
+                        shot_chosen_screen(false, index as usize, &mut state);
                     }
                     slintbackend::SlintSelection::Slurp => {
                         let Ok(output) = std::process::Command::new("slurp").arg("-d").output()
@@ -440,7 +440,7 @@ fn take_screenshot(option: ClapOption) {
                             use notify_rust::Notification;
                             let _ = Notification::new()
                                 .summary("Canceled")
-                                .body("Canceld to Save File")
+                                .body("Canceled to Save File")
                                 .icon(FAILED_IMAGE)
                                 .timeout(TIMEOUT)
                                 .show();

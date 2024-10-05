@@ -85,7 +85,7 @@ pub struct FrameInfo {
     pub frame_mmap: MmapMut,
 
     pub frame_color_type: ColorType,
-    /// transform: how the screen is layed
+    /// transform: how the screen is laid
     pub transform: wl_output::Transform,
     /// realwidth: same to above
     pub realwidth: u32,
@@ -123,7 +123,7 @@ fn create_shm_fd() -> std::io::Result<OwnedFd> {
     // Only try memfd on linux and freebsd.
     #[cfg(any(target_os = "linux", target_os = "freebsd"))]
     loop {
-        // Create a file that closes on succesful execution and seal it's operations.
+        // Create a file that closes on successful execution and seal it's operations.
         match memfd::memfd_create(
             CStr::from_bytes_with_nul(b"wayshot\0").unwrap(),
             memfd::MemFdCreateFlag::MFD_CLOEXEC | memfd::MemFdCreateFlag::MFD_ALLOW_SEALING,
@@ -157,7 +157,7 @@ fn create_shm_fd() -> std::io::Result<OwnedFd> {
             // O_CREAT = Create file if does not exist.
             // O_EXCL = Error if create and file exists.
             // O_RDWR = Open for reading and writing.
-            // O_CLOEXEC = Close on succesful execution.
+            // O_CLOEXEC = Close on successful execution.
             // S_IRUSR = Set user read permission bit .
             // S_IWUSR = Set user write permission bit.
             mem_file_handle.as_str(),
@@ -299,7 +299,7 @@ impl HaruhiShotState {
     /// capture a frame, it will return [FrameInfo], or [HarihiError]
     /// with frameinfo, you can use it to create image
     /// realwidth and realheight  it is the logic width and height you choose
-    /// finally the image will resize as the width and height privided here
+    /// finally the image will resize as the width and height provided here
     /// because the image capture by wm will not be the same size you choose
     /// slurpoption please view [SlurpArea], it accepts a area, when capture region
     pub fn capture_output_frame<T>(
@@ -355,7 +355,7 @@ impl HaruhiShotState {
                     })
                     .copied();
                 let frame_format = frameformat.as_ref().ok_or_else(|| {
-                    HaruhiError::QueueError("Canot find a frameformat".to_string())
+                    HaruhiError::QueueError("Cannot find a frameformat".to_string())
                 })?;
                 let frame_bytes = frame_format.stride * frame_format.height;
                 let mem_fd = create_shm_fd()?;

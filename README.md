@@ -31,7 +31,7 @@ If you want to package it , you can use `meson.build`
 
 ## Use example
 
-Fullscreen ~~(No, just the first screen, just because I am not familar with image.rs)~~ Finished fullscreen, just compile two images together
+Fullscreen ~~(No, just the first screen, just because I am not familiar with image.rs)~~ Finished fullscreen, just compile two images together
 
 ```
 haruhishot -G --stdout | wl-copy
