@@ -79,7 +79,7 @@ impl HaruhiShotState {
         event_queue
             .roundtrip(&mut state)
             .map_err(|_| HaruhiError::InitFailed("Error During first roundtrip".to_string()))?;
-        let xdg_output_manager = state.xdg_output_manager.clone().unwrap();
+        let xdg_output_manager = state.xdg_output_manager.as_ref().unwrap();
         for display in state.displays.iter() {
             xdg_output_manager.get_xdg_output(display, &qh, ());
         }
