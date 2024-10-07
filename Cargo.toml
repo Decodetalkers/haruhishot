@@ -56,6 +56,7 @@ wayland-client = { workspace = true, optional = true }
 notify-rust = { version = "4.11.3", optional = true, features = ["images"] }
 xkbcommon = "0.8.0"
 swayipc = { version = "3.0.2", optional = true }
+anstyle = "1.0.8"
 
 # impl it in the feature
 [build-dependencies]
