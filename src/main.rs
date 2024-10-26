@@ -513,12 +513,13 @@ fn take_screenshot(option: ClapOption) {
             },
             #[cfg(feature = "sway")]
             ClapOption::ShotWindow => {
-                swayloop::get_window();
+                let th = swayloop::get_window();
                 swayloop::swaylayer();
                 loop {
                     std::thread::sleep(std::time::Duration::from_millis(10));
                     if let Ok(can_exit) = swayloop::CAN_EXIT.lock() {
                         if let swayloop::SwayWindowSelect::Finish = *can_exit {
+                            let _ = th.join();
                             break;
                         }
                     }

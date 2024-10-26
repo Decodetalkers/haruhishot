@@ -44,8 +44,8 @@ pub static CAN_EXIT: Lazy<Arc<Mutex<SwayWindowSelect>>> =
 pub static FINAL_WINDOW: Lazy<Arc<Mutex<WindowInfo>>> =
     Lazy::new(|| Arc::new(Mutex::new((0, 0, 0, 0))));
 
-pub fn get_window() {
-    thread::spawn(|| {
+pub fn get_window() -> thread::JoinHandle<()> {
+    return thread::spawn(|| {
         let subs = [swayipc::EventType::Window];
 
         let mut geometry = (0, 0, 0, 0);
@@ -136,7 +136,7 @@ pub fn swaylayer() {
         event_queue.blocking_dispatch(&mut simple_layer).unwrap();
 
         if simple_layer.exit {
-            println!("exiting example");
+            tracing::info!("exiting layer_shell");
             break;
         }
     }
