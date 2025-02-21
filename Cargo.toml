@@ -1,6 +1,6 @@
 [workspace.package]
 version = "0.4.0"
-edition = "2021"
+edition = "2024"
 license = "MIT"
 description = "impl screencopy for wayland"
 authors = ["Decodertalkers <aakari@tutanota.com>"]

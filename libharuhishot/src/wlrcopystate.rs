@@ -1,9 +1,9 @@
 use image::ColorType;
+use wayland_client::QueueHandle;
 use wayland_client::protocol::wl_buffer::WlBuffer;
 use wayland_client::protocol::wl_output::{self, WlOutput};
 use wayland_client::protocol::wl_shm::{self, Format};
 use wayland_client::protocol::wl_shm_pool::WlShmPool;
-use wayland_client::QueueHandle;
 use wayland_client::{Connection, Dispatch, WEnum};
 use wayland_protocols_wlr::screencopy::v1::client::zwlr_screencopy_frame_v1::{
     self, ZwlrScreencopyFrameV1,
@@ -11,7 +11,6 @@ use wayland_protocols_wlr::screencopy::v1::client::zwlr_screencopy_frame_v1::{
 
 use std::os::fd::{AsFd, AsRawFd, OwnedFd};
 use std::{
-    ffi::CStr,
     fs::File,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -125,7 +124,7 @@ fn create_shm_fd() -> std::io::Result<OwnedFd> {
     loop {
         // Create a file that closes on successful execution and seal it's operations.
         match memfd::memfd_create(
-            CStr::from_bytes_with_nul(b"wayshot\0").unwrap(),
+            c"wayshot",
             memfd::MemFdCreateFlag::MFD_CLOEXEC | memfd::MemFdCreateFlag::MFD_ALLOW_SEALING,
         ) {
             Ok(fd) => {

@@ -1,6 +1,6 @@
 use wayland_client::protocol::wl_output::{self, Transform, WlOutput};
 use wayland_client::protocol::wl_shm::WlShm;
-use wayland_client::{protocol::wl_registry, Connection, Dispatch, QueueHandle};
+use wayland_client::{Connection, Dispatch, QueueHandle, protocol::wl_registry};
 use wayland_client::{Proxy, WEnum};
 
 use wayland_protocols::xdg::xdg_output::zv1::client::zxdg_output_manager_v1::ZxdgOutputManagerV1;
@@ -254,11 +254,7 @@ impl HaruhiShotState {
                 ids.push(i);
             }
         }
-        if ids.is_empty() {
-            None
-        } else {
-            Some(ids)
-        }
+        if ids.is_empty() { None } else { Some(ids) }
     }
 
     /// get the pos in screen , it is used in region copy

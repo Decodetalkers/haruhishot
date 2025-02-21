@@ -1,8 +1,8 @@
-use dialoguer::theme::ColorfulTheme;
 use dialoguer::FuzzySelect;
+use dialoguer::theme::ColorfulTheme;
 use libharuhishot::reexport::wl_output;
 
-use clap::{arg, Arg, ArgAction, Command};
+use clap::{Arg, ArgAction, Command, arg};
 
 mod constenv;
 mod filewriter;

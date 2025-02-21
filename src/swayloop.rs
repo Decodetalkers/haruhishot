@@ -4,24 +4,24 @@ use sctk::{
     delegate_seat, delegate_shm,
     output::{OutputHandler, OutputState},
     reexports::client::{
+        Connection, QueueHandle,
         globals::registry_queue_init,
         protocol::{wl_keyboard, wl_output, wl_seat, wl_shm, wl_surface},
-        Connection, QueueHandle,
     },
     registry::{ProvidesRegistryState, RegistryState},
     registry_handlers,
     seat::{
-        keyboard::{KeyEvent, KeyboardHandler, Modifiers},
         Capability, SeatHandler, SeatState,
+        keyboard::{KeyEvent, KeyboardHandler, Modifiers},
     },
     shell::{
+        WaylandSurface,
         wlr_layer::{
             Anchor, KeyboardInteractivity, Layer, LayerShell, LayerShellHandler, LayerSurface,
             LayerSurfaceConfigure,
         },
-        WaylandSurface,
     },
-    shm::{slot::SlotPool, Shm, ShmHandler},
+    shm::{Shm, ShmHandler, slot::SlotPool},
 };
 use std::convert::TryInto;
 use xkbcommon::xkb::keysyms;
@@ -45,7 +45,7 @@ pub static FINAL_WINDOW: Lazy<Arc<Mutex<WindowInfo>>> =
     Lazy::new(|| Arc::new(Mutex::new((0, 0, 0, 0))));
 
 pub fn get_window() -> thread::JoinHandle<()> {
-    return thread::spawn(|| {
+    thread::spawn(|| {
         let subs = [swayipc::EventType::Window];
 
         let mut geometry = (0, 0, 0, 0);
@@ -70,7 +70,7 @@ pub fn get_window() -> thread::JoinHandle<()> {
         }
         let mut final_window = FINAL_WINDOW.lock().unwrap();
         *final_window = geometry;
-    });
+    })
 }
 
 pub fn swaylayer() {
@@ -381,8 +381,7 @@ impl SimpleLayer {
         {
             canvas
                 .chunks_exact_mut(4)
-                .enumerate()
-                .for_each(|(_, chunk)| {
+                .for_each(|chunk| {
                     let a = 0;
                     let r = 0;
                     let g = 0;

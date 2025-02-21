@@ -1,4 +1,4 @@
-use image::{codecs::png::PngEncoder, GenericImageView, ImageBuffer, ImageEncoder, Pixel};
+use image::{GenericImageView, ImageBuffer, ImageEncoder, Pixel, codecs::png::PngEncoder};
 use libharuhishot::reexport::wl_output;
 #[cfg(feature = "notify")]
 use notify_rust::Notification;
@@ -9,7 +9,7 @@ use crate::constenv::{FAILED_IMAGE, SUCCEED_IMAGE, TIMEOUT};
 use libharuhishot::FrameInfo;
 
 use std::io::Write;
-use std::io::{stdout, BufWriter, Cursor};
+use std::io::{BufWriter, Cursor, stdout};
 use std::time;
 
 pub fn get_color(bufferdata: FrameInfo) {
