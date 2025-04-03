@@ -360,7 +360,7 @@ fn take_screenshot(option: ClapOption) {
                                 use notify_rust::Notification;
                                 let _ = Notification::new()
                                     .summary("FileSavedFailed")
-                                    .body("Unknow Screen")
+                                    .body("Unknown Screen")
                                     .icon(FAILED_IMAGE)
                                     .timeout(TIMEOUT)
                                     .show();
@@ -382,7 +382,7 @@ fn take_screenshot(option: ClapOption) {
                             use notify_rust::Notification;
                             let _ = Notification::new()
                                 .summary("FileSavedFailed")
-                                .body("Unknow Screen")
+                                .body("Unknown Screen")
                                 .icon(FAILED_IMAGE)
                                 .timeout(TIMEOUT)
                                 .show();
