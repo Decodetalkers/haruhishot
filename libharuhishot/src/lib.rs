@@ -1,46 +1,15 @@
-//!
-//! libharuhishot, it is used for wlr-screencopy, split it because I want to help with wayshot, but
-//! I also learn a lot. I like my program very much, because it makes me feel alive. Wayshot is a
-//! good program, please help them.
-//!
-//! The lib is simple enough to use, you can take the haruhishot for example, simple usage is like
-//!
-//! ```rust, no_run
-//! use libharuhishot::HaruhiShotState;
-//! let mut state = HaruhiShotState::init().unwrap();
-//! let buffer = state.capture_output_frame(
-//!     &state.displays[0].clone(),
-//!     state.display_logic_size[0],
-//!     state.display_transform[0],
-//!     None
-//! ).unwrap();
-//!
-//! ```
-//! Then you will get a [FrameInfo], There is a mmap , you can get data there
-//!
-//!
-//!
+use wayland_protocols::ext::image_copy_capture::v1::client::{
+    ext_image_copy_capture_frame_v1::{self, ExtImageCopyCaptureFrameV1},
+    ext_image_copy_capture_manager_v1::{self, ExtImageCopyCaptureManagerV1},
+    ext_image_copy_capture_session_v1::{self, ExtImageCopyCaptureSessionV1},
+};
 
-pub mod convert;
-pub mod haruhierror;
-pub mod wlrcopystate;
-pub mod wlrshotbasestate;
+use wayland_protocols::ext::image_capture_source::v1::client::{
+    ext_foreign_toplevel_image_capture_source_manager_v1::{
+        self, ExtForeignToplevelImageCaptureSourceManagerV1,
+    },
+    ext_image_capture_source_v1::{self, ExtImageCaptureSourceV1},
+    ext_output_image_capture_source_manager_v1::{self, ExtOutputImageCaptureSourceManagerV1},
+};
 
-pub use wlrcopystate::{FrameFormat, FrameInfo};
-pub use wlrshotbasestate::HaruhiShotState;
-
-/// for user to read the state, report some object
-pub mod reexport {
-    pub mod wl_output {
-        /// rexport wl_output Transform
-        pub use wayland_client::protocol::wl_output::Transform;
-    }
-    pub mod wl_shm {
-        /// reexport wl_shm Format
-        pub use wayland_client::protocol::wl_shm::Format;
-    }
-    /// rexport wl_output Transform
-    pub use wl_output::Transform;
-    /// reexport wl_shm Format
-    pub use wl_shm::Format;
-}
+struct HaruhiShotState;
