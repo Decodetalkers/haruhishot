@@ -718,6 +718,7 @@ dependencies = [
  "libharuhishot",
  "notify-rust",
  "once_cell",
+ "thiserror 2.0.12",
  "tracing",
  "tracing-subscriber",
  "wayland-client",
