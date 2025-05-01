@@ -271,7 +271,7 @@ impl Dispatch<wl_registry::WlRegistry, ()> for HaruhiShotState {
             if interface == WlOutput::interface().name {
                 state
                     .output_infos
-                    .push(WlOutputInfo::new(proxy.bind(name, version, &qh, ())));
+                    .push(WlOutputInfo::new(proxy.bind(name, version, qh, ())));
             } else if interface == WlShm::interface().name {
             }
         }
@@ -326,11 +326,8 @@ impl Dispatch<WlOutput, ()> for HaruhiShotState {
         else {
             return;
         };
-        match event {
-            wl_output::Event::Name { name } => {
-                data.name = name;
-            }
-            _ => {}
+        if let wl_output::Event::Name { name } = event {
+            data.name = name;
         }
     }
 }
