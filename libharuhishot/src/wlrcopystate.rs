@@ -125,14 +125,14 @@ fn create_shm_fd() -> std::io::Result<OwnedFd> {
         // Create a file that closes on successful execution and seal it's operations.
         match memfd::memfd_create(
             c"wayshot",
-            memfd::MemFdCreateFlag::MFD_CLOEXEC | memfd::MemFdCreateFlag::MFD_ALLOW_SEALING,
+            memfd::MFdFlags::MFD_CLOEXEC | memfd::MFdFlags::MFD_ALLOW_SEALING,
         ) {
             Ok(fd) => {
                 // This is only an optimization, so ignore errors.
                 // F_SEAL_SRHINK = File cannot be reduced in size.
                 // F_SEAL_SEAL = Prevent further calls to fcntl().
                 let _ = fcntl::fcntl(
-                    fd.as_raw_fd(),
+                    fd.as_fd(),
                     fcntl::F_ADD_SEALS(
                         fcntl::SealFlag::F_SEAL_SHRINK | fcntl::SealFlag::F_SEAL_SEAL,
                     ),
