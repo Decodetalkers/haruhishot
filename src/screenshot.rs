@@ -1,17 +1,174 @@
-use wayland_client::protocol::wl_output::WlOutput;
+use std::{
+    os::fd::OwnedFd,
+    sync::{Arc, RwLock},
+};
+
+use image::{ImageEncoder, codecs::png::PngEncoder};
+use memmap2::MmapMut;
+use wayland_client::{WEnum, protocol::wl_output::WlOutput};
 use wayland_protocols::ext::image_copy_capture::v1::client::ext_image_copy_capture_manager_v1::Options;
 
-use crate::{HaruhiShotState, state::FrameInfo};
+use crate::{
+    HaruhiShotState,
+    state::{CaptureInfo, CaptureState, FrameInfo},
+    utils::Size,
+};
+
+use std::os::fd::{AsFd, AsRawFd};
+use std::{
+    fs::File,
+    time::{SystemTime, UNIX_EPOCH},
+};
+
+use nix::{
+    fcntl,
+    sys::{memfd, mman, stat},
+    unistd,
+};
+
+/// capture_output_frame.
+fn create_shm_fd() -> std::io::Result<OwnedFd> {
+    // Only try memfd on linux and freebsd.
+    #[cfg(any(target_os = "linux", target_os = "freebsd"))]
+    loop {
+        // Create a file that closes on successful execution and seal it's operations.
+        match memfd::memfd_create(
+            c"wayshot",
+            memfd::MFdFlags::MFD_CLOEXEC | memfd::MFdFlags::MFD_ALLOW_SEALING,
+        ) {
+            Ok(fd) => {
+                // This is only an optimization, so ignore errors.
+                // F_SEAL_SRHINK = File cannot be reduced in size.
+                // F_SEAL_SEAL = Prevent further calls to fcntl().
+                let _ = fcntl::fcntl(
+                    fd.as_fd(),
+                    fcntl::F_ADD_SEALS(
+                        fcntl::SealFlag::F_SEAL_SHRINK | fcntl::SealFlag::F_SEAL_SEAL,
+                    ),
+                );
+                return Ok(fd);
+            }
+            Err(nix::errno::Errno::EINTR) => continue,
+            Err(nix::errno::Errno::ENOSYS) => break,
+            Err(errno) => return Err(std::io::Error::from(errno)),
+        }
+    }
+
+    // Fallback to using shm_open.
+    let sys_time = SystemTime::now();
+    let mut mem_file_handle = format!(
+        "/wayshot-{}",
+        sys_time.duration_since(UNIX_EPOCH).unwrap().subsec_nanos()
+    );
+    loop {
+        match mman::shm_open(
+            // O_CREAT = Create file if does not exist.
+            // O_EXCL = Error if create and file exists.
+            // O_RDWR = Open for reading and writing.
+            // O_CLOEXEC = Close on successful execution.
+            // S_IRUSR = Set user read permission bit .
+            // S_IWUSR = Set user write permission bit.
+            mem_file_handle.as_str(),
+            fcntl::OFlag::O_CREAT
+                | fcntl::OFlag::O_EXCL
+                | fcntl::OFlag::O_RDWR
+                | fcntl::OFlag::O_CLOEXEC,
+            stat::Mode::S_IRUSR | stat::Mode::S_IWUSR,
+        ) {
+            Ok(fd) => match mman::shm_unlink(mem_file_handle.as_str()) {
+                Ok(_) => return Ok(fd),
+                Err(errno) => match unistd::close(fd.as_raw_fd()) {
+                    Ok(_) => return Err(std::io::Error::from(errno)),
+                    Err(errno) => return Err(std::io::Error::from(errno)),
+                },
+            },
+            Err(nix::errno::Errno::EEXIST) => {
+                // If a file with that handle exists then change the handle
+                mem_file_handle = format!(
+                    "/wayshot-{}",
+                    sys_time.duration_since(UNIX_EPOCH).unwrap().subsec_nanos()
+                );
+                continue;
+            }
+            Err(nix::errno::Errno::EINTR) => continue,
+            Err(errno) => return Err(std::io::Error::from(errno)),
+        }
+    }
+}
 
 impl HaruhiShotState {
-    fn shot_output(&self, output: &WlOutput) {
+    pub fn shot_output(&mut self, output: &WlOutput) {
+        let mut event_queue = self.take_event_queue();
         let img_manager = self.output_image_manager();
         let capture_manager = self.image_copy_capture_manager();
         let qh = self.qhandle();
+
         let source = img_manager.create_source(output, qh, ());
-        let frame_info = FrameInfo::default();
+        let info = Arc::new(RwLock::new(FrameInfo::default()));
         let session =
-            capture_manager.create_session(&source, Options::PaintCursors, qh, frame_info);
-        let frame = session.create_frame(qh, ());
+            capture_manager.create_session(&source, Options::PaintCursors, qh, info.clone());
+        let shm = self.shm().clone();
+
+        let capture_info = CaptureInfo::new();
+        let frame = session.create_frame(qh, capture_info.clone());
+        event_queue.blocking_dispatch(self).unwrap();
+        let qh = self.qhandle();
+
+        let info = info.read().unwrap();
+        println!("{:?}, {:?}", info.size(), info.format());
+
+        let Size { width, height } = info.size();
+        let WEnum::Value(frame_format) = info.format() else {
+            return;
+        };
+        let frame_bytes = 4 * height * width;
+        let mem_fd = create_shm_fd().unwrap();
+        let mem_file = File::from(mem_fd);
+        mem_file.set_len(frame_bytes as u64).unwrap();
+
+        let shm_pool = shm.create_pool(mem_file.as_fd(), (width * height * 4) as i32, &qh, ());
+        let buffer = shm_pool.create_buffer(
+            0,
+            width as i32,
+            height as i32,
+            width as i32 * 4,
+            frame_format,
+            &qh,
+            (),
+        );
+        frame.attach_buffer(&buffer);
+        frame.capture();
+
+        loop {
+            event_queue.blocking_dispatch(self).unwrap();
+            let info = capture_info.read().unwrap();
+            if matches!(
+                info.state(),
+                CaptureState::Successed | CaptureState::Failed(_)
+            ) {
+                break;
+            }
+        }
+
+        self.reset_event_queue(event_queue);
+
+        let mut frame_mmap = unsafe { MmapMut::map_mut(&mem_file).unwrap() };
+
+        let file_name = format!(
+            "{}-haruhui.png",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+        );
+        let file = std::path::Path::new("/tmp").join(file_name);
+
+        let mut writer = std::fs::File::create(&file).unwrap();
+
+        let converter = crate::convert::create_converter(frame_format).unwrap();
+        let color_type = converter.convert_inplace(&mut frame_mmap);
+        PngEncoder::new(&mut writer)
+            .write_image(&frame_mmap, width, height, color_type.into())
+            .unwrap();
     }
 }

@@ -1,8 +1,8 @@
-use wayland_protocols::ext::image_copy_capture::v1::client::ext_image_copy_capture_session_v1;
+use wayland_client::{EventQueue, WEnum};
 use wayland_protocols::ext::image_copy_capture::v1::client::{
-    ext_image_copy_capture_frame_v1::ExtImageCopyCaptureFrameV1,
+    ext_image_copy_capture_frame_v1::{self, ExtImageCopyCaptureFrameV1, FailureReason},
     ext_image_copy_capture_manager_v1::ExtImageCopyCaptureManagerV1,
-    ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1,
+    ext_image_copy_capture_session_v1::{self, ExtImageCopyCaptureSessionV1},
 };
 
 use wayland_protocols::ext::image_capture_source::v1::client::{
@@ -23,7 +23,8 @@ use wayland_client::{
         wl_buffer::WlBuffer,
         wl_output::{self, WlOutput},
         wl_registry,
-        wl_shm::WlShm,
+        wl_shm::{Format, WlShm},
+        wl_shm_pool::WlShmPool,
     },
 };
 
@@ -32,7 +33,7 @@ use wayland_protocols::xdg::xdg_output::zv1::client::{
     zxdg_output_v1::{self, ZxdgOutputV1},
 };
 
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock, RwLock};
 
 use crate::haruhierror::HaruhiError;
 use crate::utils::*;
@@ -45,6 +46,7 @@ pub struct HaruhiShotState {
     output_image_manager: OnceLock<ExtOutputImageCaptureSourceManagerV1>,
     shm: OnceLock<WlShm>,
     qh: OnceLock<QueueHandle<Self>>,
+    event_queue: Option<EventQueue<Self>>,
 }
 
 impl HaruhiShotState {
@@ -57,6 +59,15 @@ impl HaruhiShotState {
     pub(crate) fn qhandle(&self) -> &QueueHandle<Self> {
         self.qh.get().expect("Should init")
     }
+
+    pub(crate) fn take_event_queue(&mut self) -> EventQueue<Self> {
+        self.event_queue.take().expect("control your self")
+    }
+
+    pub(crate) fn reset_event_queue(&mut self, event_queue: EventQueue<Self>) {
+        self.event_queue = Some(event_queue);
+    }
+
     pub(crate) fn shm(&self) -> &WlShm {
         self.shm.get().expect("Should init")
     }
@@ -131,6 +142,7 @@ impl HaruhiShotState {
             .unwrap();
         state.qh.set(qh).unwrap();
         state.shm.set(shm).unwrap();
+        state.event_queue = Some(event_queue);
         Ok(state)
     }
 }
@@ -142,42 +154,104 @@ delegate_noop!(HaruhiShotState: ignore WlShm);
 delegate_noop!(HaruhiShotState: ignore ZxdgOutputManagerV1);
 delegate_noop!(HaruhiShotState: ignore ExtImageCopyCaptureManagerV1);
 delegate_noop!(HaruhiShotState: ignore WlBuffer);
+delegate_noop!(HaruhiShotState: ignore WlShmPool);
 
 #[derive(Debug, Default)]
 pub(crate) struct FrameInfo {
-    pub(crate) buffer_size: OnceLock<Size<u32>>,
+    buffer_size: OnceLock<Size<u32>>,
+    shm_format: OnceLock<WEnum<Format>>,
 }
 
-impl Dispatch<ExtImageCopyCaptureSessionV1, FrameInfo> for HaruhiShotState {
+impl FrameInfo {
+    pub(crate) fn size(&self) -> Size<u32> {
+        self.buffer_size.get().cloned().expect("not inited")
+    }
+
+    pub(crate) fn format(&self) -> WEnum<Format> {
+        self.shm_format.get().cloned().expect("Not inited")
+    }
+}
+
+impl<'a> Dispatch<ExtImageCopyCaptureSessionV1, Arc<RwLock<FrameInfo>>> for HaruhiShotState {
     fn event(
         state: &mut Self,
         proxy: &ExtImageCopyCaptureSessionV1,
         event: <ExtImageCopyCaptureSessionV1 as Proxy>::Event,
-        data: &FrameInfo,
+        data: &Arc<RwLock<FrameInfo>>,
         conn: &Connection,
         qhandle: &wayland_client::QueueHandle<Self>,
     ) {
+        let frame_info = data.write().unwrap();
         match event {
             ext_image_copy_capture_session_v1::Event::BufferSize { width, height } => {
-                data.buffer_size
+                frame_info
+                    .buffer_size
                     .set(Size { width, height })
-                    .expect("can only set once");
+                    .expect("should set only once");
             }
-            ext_image_copy_capture_session_v1::Event::ShmFormat { format } => {}
+            ext_image_copy_capture_session_v1::Event::ShmFormat { format } => {
+                frame_info
+                    .shm_format
+                    .set(format)
+                    .expect("should set only once");
+            }
+            ext_image_copy_capture_session_v1::Event::Done => {}
             _ => {}
         }
     }
 }
 
-impl Dispatch<ExtImageCopyCaptureFrameV1, ()> for HaruhiShotState {
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum CaptureState {
+    Failed(WEnum<FailureReason>),
+    Successed,
+    Pedding,
+}
+
+pub(crate) struct CaptureInfo {
+    transform: wl_output::Transform,
+    state: CaptureState,
+}
+
+impl CaptureInfo {
+    pub(crate) fn new() -> Arc<RwLock<Self>> {
+        Arc::new(RwLock::new(Self {
+            transform: wl_output::Transform::Normal,
+            state: CaptureState::Pedding,
+        }))
+    }
+
+    pub(crate) fn state(&self) -> CaptureState {
+        self.state
+    }
+}
+
+impl Dispatch<ExtImageCopyCaptureFrameV1, Arc<RwLock<CaptureInfo>>> for HaruhiShotState {
     fn event(
         state: &mut Self,
         proxy: &ExtImageCopyCaptureFrameV1,
         event: <ExtImageCopyCaptureFrameV1 as Proxy>::Event,
-        data: &(),
+        data: &Arc<RwLock<CaptureInfo>>,
         conn: &Connection,
         qhandle: &wayland_client::QueueHandle<Self>,
     ) {
+        println!("ggg");
+        let mut data = data.write().unwrap();
+        match event {
+            ext_image_copy_capture_frame_v1::Event::Ready => {
+                println!("ggg");
+                data.state = CaptureState::Successed;
+            }
+            ext_image_copy_capture_frame_v1::Event::Failed { reason } => {
+                data.state = CaptureState::Failed(reason)
+            }
+            ext_image_copy_capture_frame_v1::Event::Transform {
+                transform: WEnum::Value(transform),
+            } => {
+                data.transform = transform;
+            }
+            _ => {}
+        }
     }
 }
 

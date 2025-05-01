@@ -6,7 +6,7 @@ use wayland_protocols::{
     xdg::xdg_output::zv1::client::zxdg_output_v1::ZxdgOutputV1,
 };
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct Size<T = i32>
 where
     T: Default,
@@ -15,7 +15,7 @@ where
     pub height: T,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct Position<T = i32>
 where
     T: Default,
