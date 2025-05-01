@@ -156,7 +156,7 @@ impl HaruhiShotState {
                 .map_err(HaruhiError::DispatchError)?;
             let info = capture_info.read().unwrap();
             match info.state() {
-                CaptureState::Successed => {
+                CaptureState::Succeeded => {
                     break;
                 }
                 CaptureState::Failed(info) => match info {

@@ -204,7 +204,7 @@ impl Dispatch<ExtImageCopyCaptureSessionV1, Arc<RwLock<FrameInfo>>> for HaruhiSh
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum CaptureState {
     Failed(WEnum<FailureReason>),
-    Successed,
+    Succeeded,
     Pedding,
 }
 
@@ -238,7 +238,7 @@ impl Dispatch<ExtImageCopyCaptureFrameV1, Arc<RwLock<CaptureInfo>>> for HaruhiSh
         let mut data = data.write().unwrap();
         match event {
             ext_image_copy_capture_frame_v1::Event::Ready => {
-                data.state = CaptureState::Successed;
+                data.state = CaptureState::Succeeded;
             }
             ext_image_copy_capture_frame_v1::Event::Failed { reason } => {
                 data.state = CaptureState::Failed(reason)
