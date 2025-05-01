@@ -718,7 +718,6 @@ dependencies = [
  "libharuhishot",
  "memmap2",
  "notify-rust",
- "once_cell",
  "thiserror 2.0.12",
  "tracing",
  "tracing-subscriber",
