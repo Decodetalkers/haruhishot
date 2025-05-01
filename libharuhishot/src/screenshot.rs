@@ -137,12 +137,14 @@ impl HaruhiShotState {
         let mem_file = File::from(mem_fd);
         mem_file.set_len(frame_bytes as u64).unwrap();
 
+        let stride = 4 * width;
+
         let shm_pool = shm.create_pool(mem_file.as_fd(), (width * height * 4) as i32, qh, ());
         let buffer = shm_pool.create_buffer(
             0,
             width as i32,
             height as i32,
-            width as i32 * 4,
+            stride as i32,
             frame_format,
             qh,
             (),
