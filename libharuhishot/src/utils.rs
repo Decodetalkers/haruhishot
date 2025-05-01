@@ -24,6 +24,7 @@ where
     pub y: T,
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct WlOutputInfo {
     pub(crate) output: WlOutput,
@@ -36,6 +37,9 @@ pub struct WlOutputInfo {
 }
 
 impl WlOutputInfo {
+    pub fn output(&self) -> &WlOutput {
+        &self.output
+    }
     pub(crate) fn new(output: WlOutput) -> Self {
         Self {
             output,

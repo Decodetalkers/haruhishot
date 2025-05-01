@@ -7,8 +7,8 @@ use wayland_protocols::ext::image_copy_capture::v1::client::{
 
 use wayland_protocols::ext::image_capture_source::v1::client::{
     ext_foreign_toplevel_image_capture_source_manager_v1::ExtForeignToplevelImageCaptureSourceManagerV1,
-    ext_image_capture_source_v1::{self, ExtImageCaptureSourceV1},
-    ext_output_image_capture_source_manager_v1::{self, ExtOutputImageCaptureSourceManagerV1},
+    ext_image_capture_source_v1::ExtImageCaptureSourceV1,
+    ext_output_image_capture_source_manager_v1::ExtOutputImageCaptureSourceManagerV1,
 };
 
 use wayland_protocols::ext::foreign_toplevel_list::v1::client::{
@@ -172,14 +172,14 @@ impl FrameInfo {
     }
 }
 
-impl<'a> Dispatch<ExtImageCopyCaptureSessionV1, Arc<RwLock<FrameInfo>>> for HaruhiShotState {
+impl Dispatch<ExtImageCopyCaptureSessionV1, Arc<RwLock<FrameInfo>>> for HaruhiShotState {
     fn event(
-        state: &mut Self,
-        proxy: &ExtImageCopyCaptureSessionV1,
+        _state: &mut Self,
+        _proxy: &ExtImageCopyCaptureSessionV1,
         event: <ExtImageCopyCaptureSessionV1 as Proxy>::Event,
         data: &Arc<RwLock<FrameInfo>>,
-        conn: &Connection,
-        qhandle: &wayland_client::QueueHandle<Self>,
+        _conn: &Connection,
+        _qhandle: &wayland_client::QueueHandle<Self>,
     ) {
         let frame_info = data.write().unwrap();
         match event {
@@ -228,18 +228,16 @@ impl CaptureInfo {
 
 impl Dispatch<ExtImageCopyCaptureFrameV1, Arc<RwLock<CaptureInfo>>> for HaruhiShotState {
     fn event(
-        state: &mut Self,
-        proxy: &ExtImageCopyCaptureFrameV1,
+        _state: &mut Self,
+        _proxy: &ExtImageCopyCaptureFrameV1,
         event: <ExtImageCopyCaptureFrameV1 as Proxy>::Event,
         data: &Arc<RwLock<CaptureInfo>>,
-        conn: &Connection,
-        qhandle: &wayland_client::QueueHandle<Self>,
+        _conn: &Connection,
+        _qhandle: &wayland_client::QueueHandle<Self>,
     ) {
-        println!("ggg");
         let mut data = data.write().unwrap();
         match event {
             ext_image_copy_capture_frame_v1::Event::Ready => {
-                println!("ggg");
                 data.state = CaptureState::Successed;
             }
             ext_image_copy_capture_frame_v1::Event::Failed { reason } => {
@@ -339,11 +337,11 @@ impl Dispatch<WlOutput, ()> for HaruhiShotState {
 impl Dispatch<ExtForeignToplevelListV1, ()> for HaruhiShotState {
     fn event(
         state: &mut Self,
-        proxy: &ExtForeignToplevelListV1,
+        _proxy: &ExtForeignToplevelListV1,
         event: <ExtForeignToplevelListV1 as Proxy>::Event,
-        data: &(),
-        conn: &Connection,
-        qhandle: &wayland_client::QueueHandle<Self>,
+        _data: &(),
+        _conn: &Connection,
+        _qhandle: &wayland_client::QueueHandle<Self>,
     ) {
         if let ext_foreign_toplevel_list_v1::Event::Toplevel { toplevel } = event {
             state.toplevels.push(TopLevel::new(toplevel));
@@ -358,9 +356,9 @@ impl Dispatch<ExtForeignToplevelHandleV1, ()> for HaruhiShotState {
         state: &mut Self,
         toplevel: &ExtForeignToplevelHandleV1,
         event: <ExtForeignToplevelHandleV1 as Proxy>::Event,
-        data: &(),
-        conn: &Connection,
-        qhandle: &wayland_client::QueueHandle<Self>,
+        _data: &(),
+        _conn: &Connection,
+        _qhandle: &wayland_client::QueueHandle<Self>,
     ) {
         let ext_foreign_toplevel_handle_v1::Event::Title { title } = event else {
             return;

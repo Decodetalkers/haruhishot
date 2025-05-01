@@ -717,14 +717,12 @@ dependencies = [
  "image",
  "libharuhishot",
  "memmap2",
- "nix 0.30.0",
  "notify-rust",
  "once_cell",
  "thiserror 2.0.12",
  "tracing",
  "tracing-subscriber",
  "wayland-client",
- "wayland-protocols",
 ]
 
 [[package]]

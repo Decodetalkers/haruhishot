@@ -1,15 +1,19 @@
 use std::{
+    ops::Deref,
     os::fd::OwnedFd,
     sync::{Arc, RwLock},
 };
 
-use image::{ImageEncoder, codecs::png::PngEncoder};
+use image::ColorType;
 use memmap2::MmapMut;
 use wayland_client::{WEnum, protocol::wl_output::WlOutput};
-use wayland_protocols::ext::image_copy_capture::v1::client::ext_image_copy_capture_manager_v1::Options;
+use wayland_protocols::ext::image_copy_capture::v1::client::{
+    ext_image_copy_capture_frame_v1::FailureReason, ext_image_copy_capture_manager_v1::Options,
+};
 
 use crate::{
     HaruhiShotState,
+    haruhierror::HaruhiError,
     state::{CaptureInfo, CaptureState, FrameInfo},
     utils::Size,
 };
@@ -96,8 +100,16 @@ fn create_shm_fd() -> std::io::Result<OwnedFd> {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct ImageInfo {
+    pub data: Vec<u8>,
+    pub width: u32,
+    pub height: u32,
+    pub color_type: ColorType,
+}
+
 impl HaruhiShotState {
-    pub fn shot_output(&mut self, output: &WlOutput) {
+    pub fn shot_output(&mut self, output: &WlOutput) -> Result<ImageInfo, HaruhiError> {
         let mut event_queue = self.take_event_queue();
         let img_manager = self.output_image_manager();
         let capture_manager = self.image_copy_capture_manager();
@@ -107,19 +119,18 @@ impl HaruhiShotState {
         let info = Arc::new(RwLock::new(FrameInfo::default()));
         let session =
             capture_manager.create_session(&source, Options::PaintCursors, qh, info.clone());
-        let shm = self.shm().clone();
 
         let capture_info = CaptureInfo::new();
         let frame = session.create_frame(qh, capture_info.clone());
         event_queue.blocking_dispatch(self).unwrap();
         let qh = self.qhandle();
 
+        let shm = self.shm();
         let info = info.read().unwrap();
-        println!("{:?}, {:?}", info.size(), info.format());
 
         let Size { width, height } = info.size();
         let WEnum::Value(frame_format) = info.format() else {
-            return;
+            return Err(HaruhiError::NotSupportFormat);
         };
         let frame_bytes = 4 * height * width;
         let mem_fd = create_shm_fd().unwrap();
@@ -140,13 +151,34 @@ impl HaruhiShotState {
         frame.capture();
 
         loop {
-            event_queue.blocking_dispatch(self).unwrap();
+            event_queue
+                .blocking_dispatch(self)
+                .map_err(HaruhiError::DispatchError)?;
             let info = capture_info.read().unwrap();
-            if matches!(
-                info.state(),
-                CaptureState::Successed | CaptureState::Failed(_)
-            ) {
-                break;
+            match info.state() {
+                CaptureState::Successed => {
+                    break;
+                }
+                CaptureState::Failed(info) => match info {
+                    WEnum::Value(reason) => match reason {
+                        FailureReason::Stopped => {
+                            return Err(HaruhiError::CaptureFailed("Stopped".to_owned()));
+                        }
+
+                        FailureReason::BufferConstraints => {
+                            return Err(HaruhiError::CaptureFailed("BufferConstraints".to_owned()));
+                        }
+                        FailureReason::Unknown | _ => {
+                            return Err(HaruhiError::CaptureFailed("Unknown".to_owned()));
+                        }
+                    },
+                    WEnum::Unknown(code) => {
+                        return Err(HaruhiError::CaptureFailed(format!(
+                            "Unknown reason, code : {code}"
+                        )));
+                    }
+                },
+                CaptureState::Pedding => {}
             }
         }
 
@@ -154,21 +186,14 @@ impl HaruhiShotState {
 
         let mut frame_mmap = unsafe { MmapMut::map_mut(&mem_file).unwrap() };
 
-        let file_name = format!(
-            "{}-haruhui.png",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs()
-        );
-        let file = std::path::Path::new("/tmp").join(file_name);
-
-        let mut writer = std::fs::File::create(&file).unwrap();
-
         let converter = crate::convert::create_converter(frame_format).unwrap();
         let color_type = converter.convert_inplace(&mut frame_mmap);
-        PngEncoder::new(&mut writer)
-            .write_image(&frame_mmap, width, height, color_type.into())
-            .unwrap();
+
+        Ok(ImageInfo {
+            data: frame_mmap.deref().into(),
+            width,
+            height,
+            color_type: color_type.into(),
+        })
     }
 }

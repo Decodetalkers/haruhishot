@@ -23,4 +23,6 @@ pub enum HaruhiError {
     ShmError(#[from] io::Error),
     #[error("Not Support format")]
     NotSupportFormat,
+    #[error("Capture Failed")]
+    CaptureFailed(String),
 }

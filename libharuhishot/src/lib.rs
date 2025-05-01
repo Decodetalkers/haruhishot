@@ -1,15 +1,27 @@
-use wayland_protocols::ext::image_copy_capture::v1::client::{
-    ext_image_copy_capture_frame_v1::{self, ExtImageCopyCaptureFrameV1},
-    ext_image_copy_capture_manager_v1::{self, ExtImageCopyCaptureManagerV1},
-    ext_image_copy_capture_session_v1::{self, ExtImageCopyCaptureSessionV1},
-};
+mod convert;
+mod haruhierror;
+mod screenshot;
+mod state;
+mod utils;
 
-use wayland_protocols::ext::image_capture_source::v1::client::{
-    ext_foreign_toplevel_image_capture_source_manager_v1::{
-        self, ExtForeignToplevelImageCaptureSourceManagerV1,
-    },
-    ext_image_capture_source_v1::{self, ExtImageCaptureSourceV1},
-    ext_output_image_capture_source_manager_v1::{self, ExtOutputImageCaptureSourceManagerV1},
-};
+pub use screenshot::ImageInfo;
+pub use state::*;
+pub use utils::*;
 
-struct HaruhiShotState;
+pub use image::ColorType;
+
+/// for user to read the state, report some object
+pub mod reexport {
+    pub mod wl_output {
+        /// rexport wl_output Transform
+        pub use wayland_client::protocol::wl_output::Transform;
+    }
+    pub mod wl_shm {
+        /// reexport wl_shm Format
+        pub use wayland_client::protocol::wl_shm::Format;
+    }
+    /// rexport wl_output Transform
+    pub use wl_output::Transform;
+    /// reexport wl_shm Format
+    pub use wl_shm::Format;
+}
