@@ -6,7 +6,7 @@ use dialoguer::theme::ColorfulTheme;
 use image::codecs::png::PngEncoder;
 use image::{GenericImageView, ImageEncoder, ImageError};
 pub use libharuhishot::HaruhiShotState;
-use libharuhishot::{CaptureOption, ImageClipInfo, ImageInfo, Position, Region, Size};
+use libharuhishot::{CaptureOption, ImageInfo, ImageViewInfo, Position, Region, Size};
 
 use std::io::{BufWriter, Write, stdout};
 use std::{env, fs, path::PathBuf};
@@ -63,10 +63,25 @@ enum HaruhiShotResult {
     SaveToFile(PathBuf),
 }
 
+trait ToCaptureOption {
+    fn to_capture_option(self) -> CaptureOption;
+}
+
+impl ToCaptureOption for bool {
+    fn to_capture_option(self) -> CaptureOption {
+        if self {
+            CaptureOption::PaintCursors
+        } else {
+            CaptureOption::None
+        }
+    }
+}
+
 fn shot_output(
     state: &mut HaruhiShotState,
     output: Option<String>,
     use_stdout: bool,
+    pointer: bool,
 ) -> Result<HaruhiShotResult, HaruhiImageWriteError> {
     let outputs = state.outputs();
     let names: Vec<&str> = outputs.iter().map(|info| info.name()).collect();
@@ -84,7 +99,7 @@ fn shot_output(
     };
 
     let output = outputs[selection].clone();
-    let image_info = state.shot_single_output(CaptureOption::PaintCursors, output)?;
+    let image_info = state.capture_single_output(pointer.to_capture_option(), output)?;
 
     write_to_image(image_info, use_stdout)
 }
@@ -92,8 +107,9 @@ fn shot_output(
 fn shot_area(
     state: &mut HaruhiShotState,
     use_stdout: bool,
+    pointer: bool,
 ) -> Result<HaruhiShotResult, HaruhiImageWriteError> {
-    let ImageClipInfo {
+    let ImageViewInfo {
         info:
             ImageInfo {
                 data,
@@ -106,7 +122,7 @@ fn shot_area(
                 position: Position { x, y },
                 size: Size { width, height },
             },
-    } = state.shot_area(CaptureOption::PaintCursors, |w_conn: &HaruhiShotState| {
+    } = state.capture_area(pointer.to_capture_option(), |w_conn: &HaruhiShotState| {
         let info = libwaysip::get_area(
             Some(libwaysip::WaysipConnection {
                 connection: w_conn.connection(),
@@ -122,9 +138,7 @@ fn shot_area(
     })?;
 
     let mut buff = std::io::Cursor::new(Vec::new());
-    PngEncoder::new(&mut buff)
-        .write_image(&data, img_width, img_height, color_type.into())
-        .unwrap();
+    PngEncoder::new(&mut buff).write_image(&data, img_width, img_height, color_type.into())?;
     let img = image::load_from_memory_with_format(buff.get_ref(), image::ImageFormat::Png).unwrap();
     let clipimage = img.view(x as u32, y as u32, width as u32, height as u32);
     if use_stdout {
@@ -201,13 +215,18 @@ fn main() {
 
     match args {
         HaruhiCli::ListOutputs => {
-            state.print_display_info();
+            state.print_displays_info();
         }
-        HaruhiCli::Output { output, stdout } => {
-            notify_result(shot_output(&mut state, output, stdout))
-        }
-        HaruhiCli::Slurp { stdout } => {
-            notify_result(shot_area(&mut state, stdout));
+        HaruhiCli::Output {
+            output,
+            stdout,
+            cursor: pointer,
+        } => notify_result(shot_output(&mut state, output, stdout, pointer)),
+        HaruhiCli::Slurp {
+            stdout,
+            cursor: pointer,
+        } => {
+            notify_result(shot_area(&mut state, stdout, pointer));
         }
     }
 }

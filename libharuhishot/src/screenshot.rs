@@ -118,6 +118,7 @@ fn create_shm_fd() -> std::io::Result<OwnedFd> {
     }
 }
 
+/// The data of the image, for the whole screen
 #[derive(Debug, Clone)]
 pub struct ImageInfo {
     pub data: Vec<u8>,
@@ -142,23 +143,31 @@ struct ShotData {
     screen_position: Position,
 }
 
+/// Image view means what part to use
+/// When use the project, every time you will get a picture of the full screen,
+/// and when you do area screenshot, This lib will also provide you with the view of the selected
+/// part
 #[derive(Debug, Clone)]
-pub struct ImageClipInfo {
+pub struct ImageViewInfo {
     pub info: ImageInfo,
     pub region: Region,
 }
 
+/// Describe the capture option
+/// Now this library provide two options
+/// [CaptureOption::PaintCursors] and [CaptureOption::None]
+/// It decides whether cursor will be shown
 #[derive(Debug, Clone, Copy)]
 pub enum CaptureOption {
     PaintCursors,
     None,
 }
 
-impl Into<Options> for CaptureOption {
-    fn into(self) -> Options {
-        match self {
-            Self::None => Options::empty(),
-            Self::PaintCursors => Options::PaintCursors,
+impl From<CaptureOption> for Options {
+    fn from(val: CaptureOption) -> Self {
+        match val {
+            CaptureOption::None => Options::empty(),
+            CaptureOption::PaintCursors => Options::PaintCursors,
         }
     }
 }
@@ -299,7 +308,8 @@ impl HaruhiShotState {
         })
     }
 
-    pub fn shot_single_output(
+    /// Capture a single output
+    pub fn capture_single_output(
         &mut self,
         option: CaptureOption,
         output: WlOutputInfo,
@@ -326,11 +336,12 @@ impl HaruhiShotState {
         })
     }
 
-    pub fn shot_area<F>(
+    /// capture with a area region
+    pub fn capture_area<F>(
         &mut self,
         option: CaptureOption,
         callback: F,
-    ) -> Result<ImageClipInfo, HaruhiError>
+    ) -> Result<ImageViewInfo, HaruhiError>
     where
         F: AreaSelectCallback,
     {
@@ -421,7 +432,7 @@ impl HaruhiShotState {
         let converter = crate::convert::create_converter(shotdata.data.frame_format).unwrap();
         let color_type = converter.convert_inplace(&mut frame_mmap);
 
-        Ok(ImageClipInfo {
+        Ok(ImageViewInfo {
             info: ImageInfo {
                 data: frame_mmap.deref().into(),
                 width: shotdata.data.width,

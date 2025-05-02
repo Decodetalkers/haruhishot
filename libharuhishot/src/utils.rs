@@ -6,6 +6,7 @@ use wayland_protocols::{
     xdg::xdg_output::zv1::client::zxdg_output_v1::ZxdgOutputV1,
 };
 
+/// Describe the size
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Size<T = i32>
 where
@@ -15,6 +16,7 @@ where
     pub height: T,
 }
 
+/// Describe the position
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Position<T = i32>
 where
@@ -43,6 +45,7 @@ pub struct Region {
     pub size: Size,
 }
 
+/// contain the output and their messages
 #[derive(Debug, Clone)]
 pub struct WlOutputInfo {
     pub(crate) output: WlOutput,
@@ -57,13 +60,17 @@ pub struct WlOutputInfo {
 }
 
 impl WlOutputInfo {
+    /// The name of the output or maybe the screen?
     pub fn name(&self) -> &str {
         &self.name
     }
+
+    /// get the description
     pub fn description(&self) -> &str {
         &self.description
     }
-    pub fn output(&self) -> &WlOutput {
+    /// get the wl_output
+    pub fn wl_output(&self) -> &WlOutput {
         &self.output
     }
     pub(crate) fn new(output: WlOutput) -> Self {

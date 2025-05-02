@@ -4,11 +4,8 @@ use wayland_client::{
     ConnectError, DispatchError,
     globals::{BindError, GlobalError},
 };
-/// Error
-/// it describe three kind of error
-/// 1. failed when init
-/// 2. failed in queue
-/// 3. failed in shm copy
+
+/// This describe the error happens during screenshot
 #[derive(Error, Debug)]
 pub enum HaruhiError {
     #[error("Init Failed connection")]

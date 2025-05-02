@@ -38,6 +38,7 @@ use std::sync::{Arc, OnceLock, RwLock};
 use crate::haruhierror::HaruhiError;
 use crate::utils::*;
 
+/// This main state of HaruhiShot, We use it to do screen copy
 #[derive(Debug, Default)]
 pub struct HaruhiShotState {
     toplevels: Vec<TopLevel>,
@@ -74,6 +75,7 @@ impl HaruhiShotState {
         self.shm.get().expect("Should init")
     }
 
+    /// get all outputs and their info
     pub fn outputs(&self) -> &Vec<WlOutputInfo> {
         &self.output_infos
     }
@@ -87,13 +89,9 @@ impl HaruhiShotState {
     }
 }
 
-pub struct HaruhiConnection<'a> {
-    pub conn: &'a Connection,
-    pub globals: &'a GlobalList,
-}
-
 impl HaruhiShotState {
-    pub fn print_display_info(&self) {
+    /// print the displays' info
+    pub fn print_displays_info(&self) {
         for WlOutputInfo {
             size: Size { width, height },
             logical_size:
@@ -284,7 +282,6 @@ impl Dispatch<wl_registry::WlRegistry, ()> for HaruhiShotState {
                 state
                     .output_infos
                     .push(WlOutputInfo::new(proxy.bind(name, version, qh, ())));
-            } else if interface == WlShm::interface().name {
             }
         }
     }

@@ -5,7 +5,7 @@ mod screenshot;
 mod state;
 mod utils;
 
-pub use screenshot::{AreaSelectCallback, CaptureOption, ImageClipInfo, ImageInfo};
+pub use screenshot::{AreaSelectCallback, CaptureOption, ImageInfo, ImageViewInfo};
 pub use state::*;
 pub use utils::*;
 

@@ -20,10 +20,14 @@ pub enum HaruhiCli {
         output: Option<String>,
         #[arg(value_name = "stdout", long)]
         stdout: bool,
+        #[arg(value_name = "pointer", long, default_value = "false")]
+        cursor: bool,
     },
     #[command(long_flag = "slurp", short_flag = 'S', about = "area select")]
     Slurp {
         #[arg(value_name = "stdout", long)]
         stdout: bool,
+        #[arg(value_name = "pointer", long, default_value = "false")]
+        cursor: bool,
     },
 }
