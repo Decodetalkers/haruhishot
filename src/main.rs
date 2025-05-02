@@ -6,7 +6,7 @@ use dialoguer::theme::ColorfulTheme;
 use image::codecs::png::PngEncoder;
 use image::{GenericImageView, ImageEncoder, ImageError};
 pub use libharuhishot::HaruhiShotState;
-use libharuhishot::{ImageClipInfo, ImageInfo, Position, Region, Size};
+use libharuhishot::{CaptureOption, ImageClipInfo, ImageInfo, Position, Region, Size};
 
 use std::io::{BufWriter, Write, stdout};
 use std::{env, fs, path::PathBuf};
@@ -84,7 +84,7 @@ fn shot_output(
     };
 
     let output = outputs[selection].clone();
-    let image_info = state.shot_single_output(output)?;
+    let image_info = state.shot_single_output(CaptureOption::PaintCursors, output)?;
 
     write_to_image(image_info, use_stdout)
 }
@@ -106,7 +106,7 @@ fn shot_area(
                 position: Position { x, y },
                 size: Size { width, height },
             },
-    } = state.shot_area(|w_conn| {
+    } = state.shot_area(CaptureOption::PaintCursors, |w_conn: &HaruhiShotState| {
         let info = libwaysip::get_area(
             Some(libwaysip::WaysipConnection {
                 connection: w_conn.connection(),

@@ -148,6 +148,38 @@ pub struct ImageClipInfo {
     pub region: Region,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum CaptureOption {
+    PaintCursors,
+    None,
+}
+
+impl Into<Options> for CaptureOption {
+    fn into(self) -> Options {
+        match self {
+            Self::None => Options::empty(),
+            Self::PaintCursors => Options::PaintCursors,
+        }
+    }
+}
+
+pub trait AreaSelectCallback {
+    fn slurp(self, state: &HaruhiShotState) -> Result<Region, HaruhiError>;
+}
+
+impl<F> AreaSelectCallback for F
+where
+    F: Fn(&HaruhiShotState) -> Result<Region, HaruhiError>,
+{
+    fn slurp(self, state: &HaruhiShotState) -> Result<Region, HaruhiError> {
+        self(state)
+    }
+}
+impl AreaSelectCallback for Region {
+    fn slurp(self, _state: &HaruhiShotState) -> Result<Region, HaruhiError> {
+        Ok(self)
+    }
+}
 impl HaruhiShotState {
     fn shot_inner<T: AsFd>(
         &mut self,
@@ -161,6 +193,7 @@ impl HaruhiShotState {
             position: screen_position,
             ..
         }: WlOutputInfo,
+        option: CaptureOption,
         fd: T,
         file: Option<&File>,
     ) -> Result<ShotData, HaruhiError> {
@@ -171,8 +204,7 @@ impl HaruhiShotState {
 
         let source = img_manager.create_source(&output, qh, ());
         let info = Arc::new(RwLock::new(FrameInfo::default()));
-        let session =
-            capture_manager.create_session(&source, Options::PaintCursors, qh, info.clone());
+        let session = capture_manager.create_session(&source, option.into(), qh, info.clone());
 
         let capture_info = CaptureInfo::new();
         let frame = session.create_frame(qh, capture_info.clone());
@@ -267,7 +299,11 @@ impl HaruhiShotState {
         })
     }
 
-    pub fn shot_single_output(&mut self, output: WlOutputInfo) -> Result<ImageInfo, HaruhiError> {
+    pub fn shot_single_output(
+        &mut self,
+        option: CaptureOption,
+        output: WlOutputInfo,
+    ) -> Result<ImageInfo, HaruhiError> {
         let mem_fd = create_shm_fd().unwrap();
         let mem_file = File::from(mem_fd);
         let ShotData {
@@ -275,7 +311,7 @@ impl HaruhiShotState {
             height,
             frame_format,
             ..
-        } = self.shot_inner(output, mem_file.as_fd(), Some(&mem_file))?;
+        } = self.shot_inner(output, option, mem_file.as_fd(), Some(&mem_file))?;
 
         let mut frame_mmap = unsafe { MmapMut::map_mut(&mem_file).unwrap() };
 
@@ -290,9 +326,13 @@ impl HaruhiShotState {
         })
     }
 
-    pub fn shot_area<F>(&mut self, callback: F) -> Result<ImageClipInfo, HaruhiError>
+    pub fn shot_area<F>(
+        &mut self,
+        option: CaptureOption,
+        callback: F,
+    ) -> Result<ImageClipInfo, HaruhiError>
     where
-        F: Fn(&Self) -> Result<Region, HaruhiError>,
+        F: AreaSelectCallback,
     {
         let outputs = self.outputs().clone();
 
@@ -300,7 +340,7 @@ impl HaruhiShotState {
         for data in outputs.into_iter() {
             let mem_fd = create_shm_fd().unwrap();
             let mem_file = File::from(mem_fd);
-            let data = self.shot_inner(data, mem_file.as_fd(), Some(&mem_file))?;
+            let data = self.shot_inner(data, option, mem_file.as_fd(), Some(&mem_file))?;
             data_list.push(AreaShotInfo { data, mem_file })
         }
 
@@ -360,7 +400,7 @@ impl HaruhiShotState {
             event_queue.blocking_dispatch(&mut state)?;
         }
 
-        let region_re = callback(self);
+        let region_re = callback.slurp(self);
 
         debug!("Unmapping and destroying layer shell surfaces.");
         for (surface, layer_shell_surface) in layer_shell_surfaces.iter() {
