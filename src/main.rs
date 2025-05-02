@@ -84,7 +84,7 @@ fn shot_output(
             .map_err(HaruhiImageWriteError::FuzzySelectFailed)?,
     };
 
-    let output = outputs[selection].output().clone();
+    let output = outputs[selection].clone();
     let image_info = state
         .shot_single_output(&output)
         .map_err(HaruhiImageWriteError::WaylandError)?;

@@ -8,14 +8,14 @@ use image::ColorType;
 use memmap2::MmapMut;
 use wayland_client::{
     WEnum,
-    protocol::{wl_output::WlOutput, wl_shm},
+    protocol::{wl_buffer::WlBuffer, wl_shm},
 };
 use wayland_protocols::ext::image_copy_capture::v1::client::{
     ext_image_copy_capture_frame_v1::FailureReason, ext_image_copy_capture_manager_v1::Options,
 };
 
 use crate::{
-    HaruhiShotState,
+    HaruhiShotState, WlOutputInfo,
     haruhierror::HaruhiError,
     state::{CaptureInfo, CaptureState, FrameInfo},
     utils::Size,
@@ -111,14 +111,30 @@ pub struct ImageInfo {
     pub color_type: ColorType,
 }
 
+#[allow(unused)]
+#[derive(Debug, Clone)]
+struct ShotData {
+    buffer: WlBuffer,
+    width: u32,
+    height: u32,
+    frame_bytes: u32,
+    stride: u32,
+    frame_format: wl_shm::Format,
+}
+
 impl HaruhiShotState {
-    pub fn shot_single_output(&mut self, output: &WlOutput) -> Result<ImageInfo, HaruhiError> {
+    fn shot_inner<T: AsFd>(
+        &mut self,
+        output: &WlOutputInfo,
+        fd: T,
+        file: Option<&File>,
+    ) -> Result<ShotData, HaruhiError> {
         let mut event_queue = self.take_event_queue();
         let img_manager = self.output_image_manager();
         let capture_manager = self.image_copy_capture_manager();
         let qh = self.qhandle();
 
-        let source = img_manager.create_source(output, qh, ());
+        let source = img_manager.create_source(output.output(), qh, ());
         let info = Arc::new(RwLock::new(FrameInfo::default()));
         let session =
             capture_manager.create_session(&source, Options::PaintCursors, qh, info.clone());
@@ -146,13 +162,15 @@ impl HaruhiShotState {
             return Err(HaruhiError::NotSupportFormat);
         }
         let frame_bytes = 4 * height * width;
-        let mem_fd = create_shm_fd().unwrap();
-        let mem_file = File::from(mem_fd);
-        mem_file.set_len(frame_bytes as u64).unwrap();
+        let mem_fd = fd.as_fd();
+
+        if let Some(file) = file {
+            file.set_len(frame_bytes as u64).unwrap();
+        }
 
         let stride = 4 * width;
 
-        let shm_pool = shm.create_pool(mem_file.as_fd(), (width * height * 4) as i32, qh, ());
+        let shm_pool = shm.create_pool(mem_fd, (width * height * 4) as i32, qh, ());
         let buffer = shm_pool.create_buffer(
             0,
             width as i32,
@@ -198,6 +216,26 @@ impl HaruhiShotState {
         }
 
         self.reset_event_queue(event_queue);
+
+        Ok(ShotData {
+            buffer,
+            width,
+            height,
+            frame_bytes,
+            stride,
+            frame_format,
+        })
+    }
+
+    pub fn shot_single_output(&mut self, output: &WlOutputInfo) -> Result<ImageInfo, HaruhiError> {
+        let mem_fd = create_shm_fd().unwrap();
+        let mem_file = File::from(mem_fd);
+        let ShotData {
+            width,
+            height,
+            frame_format,
+            ..
+        } = self.shot_inner(output, mem_file.as_fd(), Some(&mem_file))?;
 
         let mut frame_mmap = unsafe { MmapMut::map_mut(&mem_file).unwrap() };
 

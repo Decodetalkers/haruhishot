@@ -24,8 +24,7 @@ where
     pub y: T,
 }
 
-#[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct WlOutputInfo {
     pub(crate) output: WlOutput,
     pub(crate) size: Size,
