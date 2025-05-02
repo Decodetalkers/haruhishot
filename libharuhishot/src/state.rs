@@ -107,7 +107,6 @@ impl HaruhiShotState {
                     height: logical_height,
                 },
             position: Position { x, y },
-            logical_position: Position { x: log_x, y: log_y },
             name,
             description,
             scale,
@@ -118,7 +117,6 @@ impl HaruhiShotState {
             println!("    Size: {width},{height}");
             println!("    LogicSize: {logical_width}, {logical_height}");
             println!("    Position: {x}, {y}");
-            println!("    LogicalPosition: {log_x}, {log_y}");
             println!("    Scale: {scale}");
         }
     }
@@ -325,7 +323,7 @@ impl Dispatch<ZxdgOutputV1, ()> for HaruhiShotState {
 
         match event {
             zxdg_output_v1::Event::LogicalPosition { x, y } => {
-                data.logical_position = Position { x, y }
+                data.position = Position { x, y }
             }
             zxdg_output_v1::Event::LogicalSize { width, height } => {
                 data.logical_size = Size { width, height };
@@ -360,6 +358,9 @@ impl Dispatch<WlOutput, ()> for HaruhiShotState {
             }
             wl_output::Event::Scale { factor } => {
                 data.scale = factor;
+            }
+            wl_output::Event::Mode { width, height, .. } => {
+                data.size = Size { width, height };
             }
             wl_output::Event::Geometry {
                 transform: WEnum::Value(transform),

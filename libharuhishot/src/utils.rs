@@ -31,7 +31,6 @@ pub struct WlOutputInfo {
     pub(crate) size: Size,
     pub(crate) logical_size: Size,
     pub(crate) position: Position,
-    pub(crate) logical_position: Position,
     pub(crate) name: String,
     pub(crate) description: String,
     pub(crate) xdg_output: OnceLock<ZxdgOutputV1>,
@@ -53,7 +52,6 @@ impl WlOutputInfo {
         Self {
             output,
             position: Position::default(),
-            logical_position: Position::default(),
             size: Size::default(),
             logical_size: Size::default(),
             name: "".to_owned(),

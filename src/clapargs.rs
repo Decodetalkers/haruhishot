@@ -9,7 +9,7 @@ use clap::{Parser, arg};
 )]
 pub enum HaruhiCli {
     #[command(
-        long_flag = "list_outptus",
+        long_flag = "list-outputs",
         short_flag = 'L',
         about = "list all outputs"
     )]
