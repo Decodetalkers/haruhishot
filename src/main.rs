@@ -192,8 +192,12 @@ pub fn waysip_to_region(
 }
 
 fn main() {
+    tracing_subscriber::fmt()
+        .with_writer(std::io::stderr)
+        .init();
     let args = HaruhiCli::parse();
-    let mut state = HaruhiShotState::new().unwrap();
+    let mut state =
+        HaruhiShotState::new().expect("Your wm needs to support Image Copy Capture protocol");
 
     match args {
         HaruhiCli::ListOutputs => {
