@@ -86,7 +86,7 @@ fn shot_output(
 
     let output = outputs[selection].output().clone();
     let image_info = state
-        .shot_output(&output)
+        .shot_single_output(&output)
         .map_err(HaruhiImageWriteError::WaylandError)?;
 
     write_to_image(image_info, use_stdout)

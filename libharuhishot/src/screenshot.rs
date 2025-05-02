@@ -6,7 +6,10 @@ use std::{
 
 use image::ColorType;
 use memmap2::MmapMut;
-use wayland_client::{WEnum, protocol::wl_output::WlOutput};
+use wayland_client::{
+    WEnum,
+    protocol::{wl_output::WlOutput, wl_shm},
+};
 use wayland_protocols::ext::image_copy_capture::v1::client::{
     ext_image_copy_capture_frame_v1::FailureReason, ext_image_copy_capture_manager_v1::Options,
 };
@@ -109,7 +112,7 @@ pub struct ImageInfo {
 }
 
 impl HaruhiShotState {
-    pub fn shot_output(&mut self, output: &WlOutput) -> Result<ImageInfo, HaruhiError> {
+    pub fn shot_single_output(&mut self, output: &WlOutput) -> Result<ImageInfo, HaruhiError> {
         let mut event_queue = self.take_event_queue();
         let img_manager = self.output_image_manager();
         let capture_manager = self.image_copy_capture_manager();
@@ -132,6 +135,16 @@ impl HaruhiShotState {
         let WEnum::Value(frame_format) = info.format() else {
             return Err(HaruhiError::NotSupportFormat);
         };
+        if !matches!(
+            frame_format,
+            wl_shm::Format::Xbgr2101010
+                | wl_shm::Format::Abgr2101010
+                | wl_shm::Format::Argb8888
+                | wl_shm::Format::Xrgb8888
+                | wl_shm::Format::Xbgr8888
+        ) {
+            return Err(HaruhiError::NotSupportFormat);
+        }
         let frame_bytes = 4 * height * width;
         let mem_fd = create_shm_fd().unwrap();
         let mem_file = File::from(mem_fd);
