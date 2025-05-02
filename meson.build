@@ -4,7 +4,7 @@ dependency('wayland-client')
 
 cargo = find_program('cargo', version: '>= 1.80')
 
-find_program('rustc', version: '>= 1.66')
+find_program('rustc', version: '>= 1.80')
 
 command = [cargo, 'build']
 
