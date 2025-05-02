@@ -116,7 +116,7 @@ impl HaruhiShotState {
         }
     }
 
-    pub fn new() -> Result<Self, HaruhiError> {
+    pub fn init() -> Result<Self, HaruhiError> {
         let conn = Connection::connect_to_env()?;
 
         let (globals, mut event_queue) = registry_queue_init::<HaruhiShotState>(&conn)?; // We just need the
