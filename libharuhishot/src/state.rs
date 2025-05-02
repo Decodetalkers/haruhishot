@@ -47,6 +47,8 @@ pub struct HaruhiShotState {
     shm: OnceLock<WlShm>,
     qh: OnceLock<QueueHandle<Self>>,
     event_queue: Option<EventQueue<Self>>,
+    conn: OnceLock<Connection>,
+    globals: OnceLock<GlobalList>,
 }
 
 impl HaruhiShotState {
@@ -75,6 +77,14 @@ impl HaruhiShotState {
     pub fn outputs(&self) -> &Vec<WlOutputInfo> {
         &self.output_infos
     }
+
+    pub fn connection(&self) -> &Connection {
+        self.conn.get().expect("should init")
+    }
+
+    pub fn globals(&self) -> &GlobalList {
+        self.globals.get().expect("should init")
+    }
 }
 
 pub struct HaruhiConnection<'a> {
@@ -83,21 +93,6 @@ pub struct HaruhiConnection<'a> {
 }
 
 impl HaruhiShotState {
-    pub fn new(connection: Option<HaruhiConnection>) -> Result<Self, HaruhiError> {
-        match connection {
-            Some(HaruhiConnection { conn, globals }) => Self::inner(conn, globals),
-            None => {
-                let conn =
-                    Connection::connect_to_env().map_err(HaruhiError::InitFailedConnection)?;
-
-                let (globals, _) = registry_queue_init::<HaruhiShotState>(&conn)
-                    .map_err(HaruhiError::InitFailedGlobal)?; // We just need the
-
-                Self::inner(&conn, &globals)
-            }
-        }
-    }
-
     pub fn print_display_info(&self) {
         for WlOutputInfo {
             size: Size { width, height },
@@ -121,42 +116,31 @@ impl HaruhiShotState {
         }
     }
 
-    fn inner(conn: &Connection, globals: &GlobalList) -> Result<Self, HaruhiError> {
+    pub fn new() -> Result<Self, HaruhiError> {
+        let conn = Connection::connect_to_env()?;
+
+        let (globals, mut event_queue) = registry_queue_init::<HaruhiShotState>(&conn)?; // We just need the
         let display = conn.display();
 
         let mut state = HaruhiShotState::default();
-        let mut event_queue = conn.new_event_queue::<HaruhiShotState>();
 
         let qh = event_queue.handle();
 
         let _registry = display.get_registry(&qh, ());
-        event_queue
-            .blocking_dispatch(&mut state)
-            .map_err(HaruhiError::DispatchError)?;
-        let image_manager = globals
-            .bind::<ExtImageCopyCaptureManagerV1, _, _>(&qh, 1..=1, ())
-            .map_err(HaruhiError::BindError)?;
-        let output_image_manager = globals
-            .bind::<ExtOutputImageCaptureSourceManagerV1, _, _>(&qh, 1..=1, ())
-            .map_err(HaruhiError::BindError)?;
-        let shm = globals
-            .bind::<WlShm, _, _>(&qh, 1..=2, ())
-            .map_err(HaruhiError::BindError)?;
-        globals
-            .bind::<ExtForeignToplevelListV1, _, _>(&qh, 1..=1, ())
-            .map_err(HaruhiError::BindError)?;
-        let the_xdg_output_manager = globals
-            .bind::<ZxdgOutputManagerV1, _, _>(&qh, 3..=3, ())
-            .map_err(HaruhiError::BindError)?;
+        event_queue.blocking_dispatch(&mut state)?;
+        let image_manager = globals.bind::<ExtImageCopyCaptureManagerV1, _, _>(&qh, 1..=1, ())?;
+        let output_image_manager =
+            globals.bind::<ExtOutputImageCaptureSourceManagerV1, _, _>(&qh, 1..=1, ())?;
+        let shm = globals.bind::<WlShm, _, _>(&qh, 1..=2, ())?;
+        globals.bind::<ExtForeignToplevelListV1, _, _>(&qh, 1..=1, ())?;
+        let the_xdg_output_manager = globals.bind::<ZxdgOutputManagerV1, _, _>(&qh, 3..=3, ())?;
 
         for output in state.output_infos.iter_mut() {
             let xdg_the_output = the_xdg_output_manager.get_xdg_output(&output.output, &qh, ());
             output.xdg_output.set(xdg_the_output).unwrap();
         }
 
-        event_queue
-            .blocking_dispatch(&mut state)
-            .map_err(HaruhiError::DispatchError)?;
+        event_queue.blocking_dispatch(&mut state)?;
 
         state.img_copy_manager.set(image_manager).unwrap();
         state
@@ -165,6 +149,8 @@ impl HaruhiShotState {
             .unwrap();
         state.qh.set(qh).unwrap();
         state.shm.set(shm).unwrap();
+        state.globals.set(globals).unwrap();
+        state.conn.set(conn).unwrap();
         state.event_queue = Some(event_queue);
         Ok(state)
     }
@@ -244,6 +230,9 @@ impl CaptureInfo {
         }))
     }
 
+    pub(crate) fn transform(&self) -> wl_output::Transform {
+        self.transform
+    }
     pub(crate) fn state(&self) -> CaptureState {
         self.state
     }
@@ -322,9 +311,7 @@ impl Dispatch<ZxdgOutputV1, ()> for HaruhiShotState {
         };
 
         match event {
-            zxdg_output_v1::Event::LogicalPosition { x, y } => {
-                data.position = Position { x, y }
-            }
+            zxdg_output_v1::Event::LogicalPosition { x, y } => data.position = Position { x, y },
             zxdg_output_v1::Event::LogicalSize { width, height } => {
                 data.logical_size = Size { width, height };
             }

@@ -4,11 +4,11 @@ use clap::Parser;
 use dialoguer::FuzzySelect;
 use dialoguer::theme::ColorfulTheme;
 use image::codecs::png::PngEncoder;
-use image::{ImageEncoder, ImageError};
+use image::{GenericImageView, ImageEncoder, ImageError};
 pub use libharuhishot::HaruhiShotState;
-use libharuhishot::ImageInfo;
+use libharuhishot::{ImageClipInfo, ImageInfo, Position, Region, Size};
 
-use std::io::{BufWriter, stdout};
+use std::io::{BufWriter, Write, stdout};
 use std::{env, fs, path::PathBuf};
 
 use std::sync::LazyLock;
@@ -85,11 +85,64 @@ fn shot_output(
     };
 
     let output = outputs[selection].clone();
-    let image_info = state
-        .shot_single_output(&output)
-        .map_err(HaruhiImageWriteError::WaylandError)?;
+    let image_info = state.shot_single_output(output)?;
 
     write_to_image(image_info, use_stdout)
+}
+
+fn shot_area(
+    state: &mut HaruhiShotState,
+    use_stdout: bool,
+) -> Result<HaruhiShotResult, HaruhiImageWriteError> {
+    let ImageClipInfo {
+        info:
+            ImageInfo {
+                data,
+                width: img_width,
+                height: img_height,
+                color_type,
+            },
+        region:
+            Region {
+                position: Position { x, y },
+                size: Size { width, height },
+            },
+    } = state.shot_area(|w_conn| {
+        let info = libwaysip::get_area(
+            Some(libwaysip::WaysipConnection {
+                connection: w_conn.connection(),
+                globals: w_conn.globals(),
+            }),
+            libwaysip::SelectionType::Area,
+        )
+        .map_err(|e| libharuhishot::Error::CaptureFailed(e.to_string()))?
+        .ok_or(libharuhishot::Error::CaptureFailed(
+            "Failed to capture the area".to_string(),
+        ))?;
+        waysip_to_region(info.size(), info.left_top_point())
+    })?;
+
+    let mut buff = std::io::Cursor::new(Vec::new());
+    PngEncoder::new(&mut buff)
+        .write_image(&data, img_width, img_height, color_type.into())
+        .unwrap();
+    let img = image::load_from_memory_with_format(buff.get_ref(), image::ImageFormat::Png).unwrap();
+    let clipimage = img.view(x as u32, y as u32, width as u32, height as u32);
+    if use_stdout {
+        let mut buff = std::io::Cursor::new(Vec::new());
+        clipimage
+            .to_image()
+            .write_to(&mut buff, image::ImageFormat::Png)?;
+        let content = buff.get_ref();
+        let stdout = stdout();
+        let mut writer = BufWriter::new(stdout.lock());
+        writer.write_all(content)?;
+        Ok(HaruhiShotResult::StdoutSucceeded)
+    } else {
+        let file = random_file_path();
+        clipimage.to_image().save(&file)?;
+        Ok(HaruhiShotResult::SaveToFile(file))
+    }
 }
 
 fn notify_result(shot_result: Result<HaruhiShotResult, HaruhiImageWriteError>) {
@@ -123,9 +176,25 @@ fn notify_result(shot_result: Result<HaruhiShotResult, HaruhiImageWriteError>) {
     }
 }
 
+pub fn waysip_to_region(
+    size: libwaysip::Size,
+    point: libwaysip::Point,
+) -> Result<libharuhishot::Region, libharuhishot::Error> {
+    let size: Size = Size {
+        width: size.width,
+        height: size.height,
+    };
+    let position: Position = Position {
+        x: point.x,
+        y: point.y,
+    };
+
+    Ok(libharuhishot::Region { position, size })
+}
+
 fn main() {
     let args = HaruhiCli::parse();
-    let mut state = HaruhiShotState::new(None).unwrap();
+    let mut state = HaruhiShotState::new().unwrap();
 
     match args {
         HaruhiCli::ListOutputs => {
@@ -133,6 +202,9 @@ fn main() {
         }
         HaruhiCli::Output { output, stdout } => {
             notify_result(shot_output(&mut state, output, stdout))
+        }
+        HaruhiCli::Slurp { stdout } => {
+            notify_result(shot_area(&mut state, stdout));
         }
     }
 }
@@ -158,9 +230,7 @@ fn write_to_stdout(
 ) -> Result<HaruhiShotResult, HaruhiImageWriteError> {
     let stdout = stdout();
     let mut writer = BufWriter::new(stdout.lock());
-    PngEncoder::new(&mut writer)
-        .write_image(&data, width, height, color_type.into())
-        .map_err(HaruhiImageWriteError::ImageError)?;
+    PngEncoder::new(&mut writer).write_image(&data, width, height, color_type.into())?;
     Ok(HaruhiShotResult::StdoutSucceeded)
 }
 
@@ -176,8 +246,6 @@ fn write_to_file(
     let mut writer =
         std::fs::File::create(&file).map_err(HaruhiImageWriteError::FileCreatedFailed)?;
 
-    PngEncoder::new(&mut writer)
-        .write_image(&data, width, height, color_type.into())
-        .map_err(HaruhiImageWriteError::ImageError)?;
+    PngEncoder::new(&mut writer).write_image(&data, width, height, color_type.into())?;
     Ok(HaruhiShotResult::SaveToFile(file))
 }

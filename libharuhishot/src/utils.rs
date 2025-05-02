@@ -1,4 +1,4 @@
-use std::sync::OnceLock;
+use std::{ops::Sub, sync::OnceLock};
 
 use wayland_client::protocol::wl_output::{self, WlOutput};
 use wayland_protocols::{
@@ -22,6 +22,25 @@ where
 {
     pub x: T,
     pub y: T,
+}
+
+impl<T> Sub for Position<T>
+where
+    T: Sub<Output = T> + Default,
+{
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Region {
+    pub position: Position,
+    pub size: Size,
 }
 
 #[derive(Debug, Clone)]

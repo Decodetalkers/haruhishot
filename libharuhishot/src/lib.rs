@@ -1,10 +1,11 @@
 mod convert;
 mod haruhierror;
+mod overlay;
 mod screenshot;
 mod state;
 mod utils;
 
-pub use screenshot::ImageInfo;
+pub use screenshot::{ImageClipInfo, ImageInfo};
 pub use state::*;
 pub use utils::*;
 

@@ -21,4 +21,9 @@ pub enum HaruhiCli {
         #[arg(value_name = "stdout", long)]
         stdout: bool,
     },
+    #[command(long_flag = "slurp", short_flag = 'S', about = "area select")]
+    Slurp {
+        #[arg(value_name = "stdout", long)]
+        stdout: bool,
+    },
 }
