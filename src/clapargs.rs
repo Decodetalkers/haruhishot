@@ -14,11 +14,6 @@ pub enum HaruhiCli {
         about = "list all outputs"
     )]
     ListOutputs,
-    #[command(
-        long_flag = "list_outptus",
-        short_flag = 'L',
-        about = "list all outputs"
-    )]
     #[command(long_flag = "output", short_flag = 'O', about = "choose output")]
     Output {
         #[arg(required = false)]
