@@ -98,6 +98,31 @@ impl HaruhiShotState {
         }
     }
 
+    pub fn print_display_info(&self) {
+        for WlOutputInfo {
+            size: Size { width, height },
+            logical_size:
+                Size {
+                    width: logical_width,
+                    height: logical_height,
+                },
+            position: Position { x, y },
+            logical_position: Position { x: log_x, y: log_y },
+            name,
+            description,
+            scale,
+            ..
+        } in self.outputs()
+        {
+            println!("{name}, {description}");
+            println!("    Size: {width},{height}");
+            println!("    LogicSize: {logical_width}, {logical_height}");
+            println!("    Position: {x}, {y}");
+            println!("    LogicalPosition: {log_x}, {log_y}");
+            println!("    Scale: {scale}");
+        }
+    }
+
     fn inner(conn: &Connection, globals: &GlobalList) -> Result<Self, HaruhiError> {
         let display = conn.display();
 
@@ -305,6 +330,9 @@ impl Dispatch<ZxdgOutputV1, ()> for HaruhiShotState {
             zxdg_output_v1::Event::LogicalSize { width, height } => {
                 data.logical_size = Size { width, height };
             }
+            zxdg_output_v1::Event::Description { description } => {
+                data.description = description;
+            }
             _ => {}
         }
     }
@@ -326,8 +354,20 @@ impl Dispatch<WlOutput, ()> for HaruhiShotState {
         else {
             return;
         };
-        if let wl_output::Event::Name { name } = event {
-            data.name = name;
+        match event {
+            wl_output::Event::Name { name } => {
+                data.name = name;
+            }
+            wl_output::Event::Scale { factor } => {
+                data.scale = factor;
+            }
+            wl_output::Event::Geometry {
+                transform: WEnum::Value(transform),
+                ..
+            } => {
+                data.transform = transform;
+            }
+            _ => {}
         }
     }
 }

@@ -1,6 +1,6 @@
 use std::sync::OnceLock;
 
-use wayland_client::protocol::wl_output::WlOutput;
+use wayland_client::protocol::wl_output::{self, WlOutput};
 use wayland_protocols::{
     ext::foreign_toplevel_list::v1::client::ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
     xdg::xdg_output::zv1::client::zxdg_output_v1::ZxdgOutputV1,
@@ -33,10 +33,19 @@ pub struct WlOutputInfo {
     pub(crate) position: Position,
     pub(crate) logical_position: Position,
     pub(crate) name: String,
+    pub(crate) description: String,
     pub(crate) xdg_output: OnceLock<ZxdgOutputV1>,
+    pub(crate) transform: wl_output::Transform,
+    pub(crate) scale: i32,
 }
 
 impl WlOutputInfo {
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+    pub fn description(&self) -> &str {
+        &self.description
+    }
     pub fn output(&self) -> &WlOutput {
         &self.output
     }
@@ -48,7 +57,10 @@ impl WlOutputInfo {
             size: Size::default(),
             logical_size: Size::default(),
             name: "".to_owned(),
+            description: "".to_owned(),
             xdg_output: OnceLock::new(),
+            transform: wl_output::Transform::Normal,
+            scale: 1,
         }
     }
 }
