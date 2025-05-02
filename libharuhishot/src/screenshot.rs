@@ -296,12 +296,12 @@ impl HaruhiShotState {
     {
         let outputs = self.outputs().clone();
 
-        let mut datas = vec![];
+        let mut data_list = vec![];
         for data in outputs.into_iter() {
             let mem_fd = create_shm_fd().unwrap();
             let mem_file = File::from(mem_fd);
             let data = self.shot_inner(data, mem_file.as_fd(), Some(&mem_file))?;
-            datas.push(AreaShotInfo { data, mem_file })
+            data_list.push(AreaShotInfo { data, mem_file })
         }
 
         let mut state = LayerShellState::new();
@@ -312,8 +312,8 @@ impl HaruhiShotState {
         let layer_shell = globals.bind::<ZwlrLayerShellV1, _, _>(&qh, 1..=1, ())?;
         let viewporter = globals.bind::<WpViewporter, _, _>(&qh, 1..=1, ())?;
         let mut layer_shell_surfaces: Vec<(WlSurface, ZwlrLayerSurfaceV1)> =
-            Vec::with_capacity(datas.len());
-        for AreaShotInfo { data, .. } in datas.iter() {
+            Vec::with_capacity(data_list.len());
+        for AreaShotInfo { data, .. } in data_list.iter() {
             let ShotData {
                 output,
                 buffer,
@@ -371,7 +371,7 @@ impl HaruhiShotState {
         event_queue.roundtrip(&mut state)?;
         let region = region_re?;
 
-        let shotdata = datas
+        let shotdata = data_list
             .iter()
             .find(|data| data.in_this_screen(region))
             .ok_or(HaruhiError::CaptureFailed("not in region".to_owned()))?;
