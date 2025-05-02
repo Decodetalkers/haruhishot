@@ -212,7 +212,7 @@ impl Dispatch<ExtImageCopyCaptureSessionV1, Arc<RwLock<FrameInfo>>> for HaruhiSh
 pub(crate) enum CaptureState {
     Failed(WEnum<FailureReason>),
     Succeeded,
-    Pedding,
+    Pending,
 }
 
 pub(crate) struct CaptureInfo {
@@ -224,7 +224,7 @@ impl CaptureInfo {
     pub(crate) fn new() -> Arc<RwLock<Self>> {
         Arc::new(RwLock::new(Self {
             transform: wl_output::Transform::Normal,
-            state: CaptureState::Pedding,
+            state: CaptureState::Pending,
         }))
     }
 

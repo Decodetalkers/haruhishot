@@ -287,7 +287,7 @@ impl HaruhiShotState {
                         )));
                     }
                 },
-                CaptureState::Pedding => {}
+                CaptureState::Pending => {}
             }
         }
 
