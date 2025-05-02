@@ -13,12 +13,16 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
-
+    container:
+      image: archlinux:latest
     steps:
-    - uses: dtolnay/rust-toolchain@stable
     - uses: actions/checkout@v4
-    - name: Install
-      run: sudo apt install -y libxkbcommon-dev
+    - uses: dtolnay/rust-toolchain@stable
+      with:
+        components: clippy rustfmt
+    - name: Install wayland dependencies
+      run: |
+        pacman -Syu --noconfirm wayland base-devel mesa pango cairo
     - name: Build
       run: cargo build --verbose
     - name: Run tests
