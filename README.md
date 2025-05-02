@@ -66,22 +66,14 @@ haruhishot --output DP-2 --stdout > test.png
 Get Color
 
 ```
-haruhishot -C (slurp -p)
+haruhishot -C
 ```
 
 or
 
 ```
-haruhishot --color (slurp -p)
+haruhishot --color
 ```
-
-if enable swayipc, then
-
-```
-haruhishot --window
-```
-
-hover on the window and press ese, then shot the window
 
 ## Features
 
