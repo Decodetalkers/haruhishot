@@ -1,572 +1,323 @@
+mod clapargs;
+
+use clap::Parser;
 use dialoguer::FuzzySelect;
 use dialoguer::theme::ColorfulTheme;
-use libharuhishot::reexport::wl_output;
+use image::codecs::png::PngEncoder;
+use image::{GenericImageView, ImageEncoder, ImageError};
+pub use libharuhishot::HaruhiShotState;
+use libharuhishot::{CaptureOption, ImageInfo, ImageViewInfo, Position, Region, Size};
 
-use clap::{Arg, ArgAction, Command, arg};
+use std::io::{BufWriter, Write, stdout};
+use std::{env, fs, path::PathBuf};
 
-mod constenv;
-mod filewriter;
-#[cfg(feature = "gui")]
-mod slintbackend;
-#[cfg(feature = "sway")]
-mod swayloop;
+use std::sync::LazyLock;
 
-use libharuhishot::HaruhiShotState;
-// This struct represents the state of our app. This simple app does not
-// need any state, by this type still supports the `Dispatch` implementations.
+use clapargs::HaruhiCli;
 
-enum ClapOption {
-    ShowInfo,
-    ShotWithFullScreen {
-        usestdout: bool,
-    },
-    ShotWithCoosedScreen {
-        screen: Option<String>,
-        usestdout: bool,
-    },
-    #[cfg(feature = "gui")]
-    ShotWithGui,
-    ShotWithSlurp {
-        pos_x: i32,
-        pos_y: i32,
-        width: i32,
-        height: i32,
-        usestdout: bool,
-    },
-    ShotWithColor {
-        pos_x: i32,
-        pos_y: i32,
-    },
-    #[cfg(feature = "sway")]
-    ShotWindow,
-}
+const TMP: &str = "/tmp";
 
-enum SlurpParseResult {
-    Finished(i32, i32, i32, i32),
-    MeetError,
-}
+pub const SUCCEED_IMAGE: &str = "haruhi_succeeded";
+pub const FAILED_IMAGE: &str = "haruhi_failed";
+pub const TIMEOUT: i32 = 10000;
 
-fn parseslurp(posmessage: String) -> SlurpParseResult {
-    let posmessage: Vec<&str> = posmessage.trim().split(' ').collect();
-    #[cfg(feature = "notify")]
-    let notify_error = |message: &str| {
-        use crate::constenv::{FAILED_IMAGE, TIMEOUT};
-        use notify_rust::Notification;
-        let _ = Notification::new()
-            .summary("FileSavedFailed")
-            .body(message)
-            .icon(FAILED_IMAGE)
-            .timeout(TIMEOUT)
-            .show();
+pub static SAVEPATH: LazyLock<PathBuf> = LazyLock::new(|| {
+    let Ok(home) = env::var("HOME") else {
+        return PathBuf::from(TMP);
     };
-    if posmessage.len() != 2 {
-        tracing::error!("Error input");
-        #[cfg(feature = "notify")]
-        notify_error("Get error input, Maybe canceled?");
-        return SlurpParseResult::MeetError;
+    let targetpath = PathBuf::from(home).join("Pictures").join("haruhishot");
+    if !targetpath.exists() && fs::create_dir_all(&targetpath).is_err() {
+        return PathBuf::from(TMP);
     }
-    let position: Vec<&str> = posmessage[0].split(',').collect();
+    targetpath
+});
 
-    let Ok(pos_x) = position[0].parse::<i32>() else {
-        tracing::error!("Error parse, Cannot get pos_x");
-        #[cfg(feature = "notify")]
-        notify_error("Error parse, Cannot get pos_x");
-        return SlurpParseResult::MeetError;
-    };
-    let Ok(pos_y) = position[1].parse::<i32>() else {
-        tracing::error!("Error parse, Cannot get pos_y");
-        #[cfg(feature = "notify")]
-        notify_error("Error parse, Cannot get pos_y");
-        return SlurpParseResult::MeetError;
-    };
-
-    let map: Vec<&str> = posmessage[1].split('x').collect();
-    if map.len() != 2 {
-        eprintln!("Error input");
-        return SlurpParseResult::MeetError;
-    }
-    let Ok(width) = map[0].parse::<i32>() else {
-        tracing::error!("Error parse, cannot get width");
-        #[cfg(feature = "notify")]
-        notify_error("Error parse, Cannot get width");
-        return SlurpParseResult::MeetError;
-    };
-    let Ok(height) = map[1].parse::<i32>() else {
-        tracing::error!("Error parse, cannot get height");
-        #[cfg(feature = "notify")]
-        notify_error("Error parse, Cannot get height");
-        return SlurpParseResult::MeetError;
-    };
-    SlurpParseResult::Finished(pos_x, pos_y, width, height)
-}
-
-const fn get_styles() -> clap::builder::Styles {
-    clap::builder::Styles::styled()
-        .usage(
-            anstyle::Style::new()
-                .bold()
-                .underline()
-                .fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Yellow))),
-        )
-        .header(
-            anstyle::Style::new()
-                .bold()
-                .underline()
-                .fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Yellow))),
-        )
-        .literal(
-            anstyle::Style::new().fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Green))),
-        )
-        .invalid(
-            anstyle::Style::new()
-                .bold()
-                .fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Red))),
-        )
-        .error(
-            anstyle::Style::new()
-                .bold()
-                .fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Red))),
-        )
-        .valid(
-            anstyle::Style::new()
-                .bold()
-                .underline()
-                .fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::Green))),
-        )
-        .placeholder(
-            anstyle::Style::new().fg_color(Some(anstyle::Color::Ansi(anstyle::AnsiColor::White))),
-        )
-}
-// The main function of our program
-fn main() {
-    const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-    let command = Command::new("haruhishot")
-        .about("One day Haruhi Suzumiya made a wlr screenshot tool")
-        .version(VERSION)
-        .subcommand_required(true)
-        .arg_required_else_help(true)
-        .author("Haruhi Suzumiya")
-        .styles(get_styles())
-        .subcommand(
-            Command::new("output")
-                .long_flag("output")
-                .short_flag('O')
-                .arg(arg!(<Screen> ... "Screen").required(false))
-                .arg(
-                    Arg::new("stdout")
-                        .long("stdout")
-                        .action(ArgAction::SetTrue)
-                        .help("to stdout"),
-                )
-                .about("Choose Output"),
-        )
-        .subcommand(
-            Command::new("slurp")
-                .long_flag("slurp")
-                .short_flag('S')
-                .arg(arg!(<Slurp> ... "Pos by slurp"))
-                .arg(
-                    Arg::new("stdout")
-                        .long("stdout")
-                        .action(ArgAction::SetTrue)
-                        .help("to stdout"),
-                )
-                .about("Slurp"),
-        )
-        .subcommand(
-            Command::new("global")
-                .long_flag("global")
-                .short_flag('G')
-                .arg(
-                    Arg::new("stdout")
-                        .long("stdout")
-                        .action(ArgAction::SetTrue)
-                        .help("to stdout"),
-                )
-                .about("TakeScreenshot about whole screen"),
-        )
-        .subcommand(
-            Command::new("color")
-                .long_flag("color")
-                .short_flag('C')
-                .arg(arg!(<Point> ... "Pos by slurp"))
-                .about("Get Color of a point"),
-        )
-        .subcommand(
-            Command::new("list_outputs")
-                .long_flag("list_outputs")
-                .short_flag('L')
-                .about("list all outputs"),
-        );
-    #[cfg(feature = "gui")]
-    let command = command.subcommand(
-        Command::new("gui")
-            .long_flag("gui")
-            .about("open gui selection"),
+fn random_file_path() -> PathBuf {
+    let file_name = format!(
+        "{}-haruhui.png",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
     );
-    #[cfg(feature = "sway")]
-    let command = command.subcommand(
-        Command::new("window")
-            .long_flag("window")
-            .about("select window"),
-    );
-    tracing_subscriber::fmt()
-        .with_writer(std::io::stderr)
-        .init();
-    let matches = command.get_matches();
-    match matches.subcommand() {
-        Some(("output", submatchs)) => {
-            let usestdout = submatchs.get_flag("stdout");
-
-            let screen = submatchs
-                .get_one::<String>("Screen")
-                .map(|screen| screen.to_string());
-
-            take_screenshot(ClapOption::ShotWithCoosedScreen { screen, usestdout });
-        }
-        Some(("slurp", submatchs)) => {
-            let posmessage = submatchs
-                .get_one::<String>("Slurp")
-                .expect("Need message")
-                .to_string();
-
-            let usestdout = submatchs.get_flag("stdout");
-            let SlurpParseResult::Finished(pos_x, pos_y, width, height) = parseslurp(posmessage)
-            else {
-                return;
-            };
-            take_screenshot(ClapOption::ShotWithSlurp {
-                pos_x,
-                pos_y,
-                width,
-                height,
-                usestdout,
-            });
-        }
-        Some(("list_outputs", _)) => take_screenshot(ClapOption::ShowInfo),
-        Some(("global", submatchs)) => {
-            let usestdout = submatchs.get_flag("stdout");
-            take_screenshot(ClapOption::ShotWithFullScreen { usestdout });
-        }
-        Some(("color", submatchs)) => {
-            let posmessage = submatchs
-                .get_one::<String>("Point")
-                .expect("Need message")
-                .to_string();
-            let SlurpParseResult::Finished(pos_x, pos_y, _, _) = parseslurp(posmessage) else {
-                return;
-            };
-            take_screenshot(ClapOption::ShotWithColor { pos_x, pos_y })
-        }
-        #[cfg(feature = "gui")]
-        Some(("gui", _)) => {
-            take_screenshot(ClapOption::ShotWithGui);
-            //slintbackend::selectgui();
-        }
-        #[cfg(feature = "sway")]
-        Some(("window", _)) => {
-            take_screenshot(ClapOption::ShotWindow);
-        }
-        _ => unimplemented!(),
-    }
-    //take_screenshot();
+    SAVEPATH.join(file_name)
 }
 
-fn take_screenshot(option: ClapOption) {
-    let mut state = HaruhiShotState::init().unwrap();
+#[derive(Debug, thiserror::Error)]
+enum HaruhiImageWriteError {
+    #[error("Image Error")]
+    ImageError(#[from] ImageError),
+    #[error("file created failed")]
+    FileCreatedFailed(#[from] std::io::Error),
+    #[error("FuzzySelect Failed")]
+    FuzzySelectFailed(#[from] dialoguer::Error),
+    #[error("Output not exist")]
+    OutputNotExist,
+    #[error("Wayland shot error")]
+    WaylandError(#[from] libharuhishot::Error),
+}
 
-    if state.is_ready() {
-        tracing::info!("All data is ready");
+#[derive(Debug, Clone)]
+enum HaruhiShotResult {
+    StdoutSucceeded,
+    SaveToFile(PathBuf),
+    ColorSucceeded,
+}
 
-        let shot_chosen_screen = |usestdout: bool, id: usize, state: &mut HaruhiShotState| {
-            let bufferdata = state.capture_output_frame(
-                &state.displays[id].clone(),
-                state.display_logic_size[id],
-                state.display_transform[id],
-                None,
-            );
-            match bufferdata {
-                Ok(Some(data)) => filewriter::write_to_file(data, usestdout),
-                Ok(None) => tracing::error!("Nothing get, check the log"),
-                Err(e) => eprintln!("Error: {e}"),
-            }
-        };
+trait ToCaptureOption {
+    fn to_capture_option(self) -> CaptureOption;
+}
 
-        let shot_with_regions =
-            |usestdout: bool,
-             state: &mut HaruhiShotState,
-             ids: Vec<usize>,
-             posinformation: (i32, i32, i32, i32)| {
-                let (pos_x, pos_y, width, height) = posinformation;
-                let mut bufferdatas = Vec::new();
-                for id in ids {
-                    let (pos_x, pos_y) = state.get_pos_from_screen((pos_x, pos_y), id);
-                    // INFO: sometime I get 0
-                    if width == 0 || height == 0 {
-                        continue;
-                    }
-                    let Ok(Some(bufferdata)) = state.capture_output_frame(
-                        &state.displays[id].clone(),
-                        (width, height),
-                        state.display_transform[id],
-                        Some((pos_x, pos_y, width, height)),
-                    ) else {
-                        tracing::error!(
-                            "Cannot get frame from screen: {} ",
-                            state.display_names[id]
-                        );
-                        #[cfg(feature = "notify")]
-                        {
-                            use crate::constenv::{FAILED_IMAGE, TIMEOUT};
-                            use notify_rust::Notification;
-                            let _ = Notification::new()
-                                .summary("FileSavedFailed")
-                                .body(&format!(
-                                    "Cannot get frame from screen: {}",
-                                    state.display_names[id]
-                                ))
-                                .icon(FAILED_IMAGE)
-                                .timeout(TIMEOUT)
-                                .show();
-                        }
-                        return;
-                    };
-                    bufferdatas.push(bufferdata);
-                }
-                filewriter::write_to_file_mutisource(bufferdatas, usestdout);
-            };
-        //
-        match option {
-            ClapOption::ShotWithFullScreen { usestdout } => {
-                let region = state.get_whole_screens_pos_and_region();
-                let allscreens: Vec<usize> = (0..state.displays.len()).collect();
-                shot_with_regions(usestdout, &mut state, allscreens, region);
-            }
-            ClapOption::ShotWithCoosedScreen { screen, usestdout } => {
-                let screen = match screen {
-                    Some(screen) => screen,
-                    None => {
-                        let names = &state.display_names;
-                        let Ok(selection) = FuzzySelect::with_theme(&ColorfulTheme::default())
-                            .with_prompt("Choose Screen")
-                            .default(0)
-                            .items(&names[..])
-                            .interact()
-                        else {
-                            #[cfg(feature = "notify")]
-                            {
-                                use crate::constenv::{FAILED_IMAGE, TIMEOUT};
-                                use notify_rust::Notification;
-                                let _ = Notification::new()
-                                    .summary("FileSavedFailed")
-                                    .body("Unknown Screen")
-                                    .icon(FAILED_IMAGE)
-                                    .timeout(TIMEOUT)
-                                    .show();
-                            }
-                            tracing::error!("You have not choose screen");
-                            return;
-                        };
-                        names[selection].clone()
-                    }
-                };
-                match state.get_select_id(screen) {
-                    Some(id) => {
-                        shot_chosen_screen(usestdout, id, &mut state);
-                    }
-                    None => {
-                        #[cfg(feature = "notify")]
-                        {
-                            use crate::constenv::{FAILED_IMAGE, TIMEOUT};
-                            use notify_rust::Notification;
-                            let _ = Notification::new()
-                                .summary("FileSavedFailed")
-                                .body("Unknown Screen")
-                                .icon(FAILED_IMAGE)
-                                .timeout(TIMEOUT)
-                                .show();
-                        }
+impl ToCaptureOption for bool {
+    fn to_capture_option(self) -> CaptureOption {
+        if self {
+            CaptureOption::PaintCursors
+        } else {
+            CaptureOption::None
+        }
+    }
+}
 
-                        tracing::error!("Cannot find screen");
-                    }
-                }
-            }
-            ClapOption::ShotWithColor { pos_x, pos_y } => {
-                if let Some(id) = state.get_pos_display_id((pos_x, pos_y)) {
-                    let (pos_x, pos_y) = state.get_pos_from_screen((pos_x, pos_y), id);
-                    if let Ok(Some(bufferdata)) = state.capture_output_frame(
-                        &state.displays[id].clone(),
-                        (1, 1),
-                        wl_output::Transform::Normal,
-                        Some((pos_x, pos_y, 1, 1)),
-                    ) {
-                        filewriter::get_color(bufferdata);
-                    }
-                }
-            }
-            ClapOption::ShowInfo => {
-                state.print_display_info();
-            }
-            #[cfg(feature = "gui")]
-            ClapOption::ShotWithGui => {
-                match slintbackend::selectgui(
-                    state.display_names.clone(),
-                    state.display_description.clone(),
-                ) {
-                    slintbackend::SlintSelection::GlobalScreen => {
-                        let region = state.get_whole_screens_pos_and_region();
-                        let allscreens: Vec<usize> = (0..state.displays.len()).collect();
-                        shot_with_regions(false, &mut state, allscreens, region);
-                    }
-                    slintbackend::SlintSelection::Selection(index) => {
-                        shot_chosen_screen(false, index as usize, &mut state);
-                    }
-                    slintbackend::SlintSelection::Slurp => {
-                        let Ok(output) = std::process::Command::new("slurp").arg("-d").output()
-                        else {
-                            tracing::error!("Maybe Slurp Missing?");
-                            #[cfg(feature = "notify")]
-                            {
-                                use crate::constenv::{FAILED_IMAGE, TIMEOUT};
-                                use notify_rust::Notification;
-                                let _ = Notification::new()
-                                    .summary("FileSavedFailed")
-                                    .body("Maybe Slurp Missing?")
-                                    .icon(FAILED_IMAGE)
-                                    .timeout(TIMEOUT)
-                                    .show();
-                            }
-                            return;
-                        };
-                        let message = output.stdout;
-                        let posmessage = String::from_utf8_lossy(&message).to_string();
-                        let SlurpParseResult::Finished(pos_x, pos_y, width, height) =
-                            parseslurp(posmessage)
-                        else {
-                            return;
-                        };
-                        match state.get_pos_display_ids((pos_x, pos_y), (width, height)) {
-                            Some(ids) => {
-                                shot_with_regions(
-                                    false,
-                                    &mut state,
-                                    ids,
-                                    (pos_x, pos_y, width, height),
-                                );
-                            }
-                            None => {
-                                tracing::error!("Pos is over the screen");
-                                #[cfg(feature = "notify")]
-                                {
-                                    use crate::constenv::{FAILED_IMAGE, TIMEOUT};
-                                    use notify_rust::Notification;
-                                    let _ = Notification::new()
-                                        .summary("FileSavedFailed")
-                                        .body("Pos is over the screen")
-                                        .icon(FAILED_IMAGE)
-                                        .timeout(TIMEOUT)
-                                        .show();
-                                }
-                            }
-                        }
-                    }
-                    slintbackend::SlintSelection::Canceled => {
-                        #[cfg(feature = "notify")]
-                        {
-                            use crate::constenv::{FAILED_IMAGE, TIMEOUT};
-                            use notify_rust::Notification;
-                            let _ = Notification::new()
-                                .summary("Canceled")
-                                .body("Canceled to Save File")
-                                .icon(FAILED_IMAGE)
-                                .timeout(TIMEOUT)
-                                .show();
-                        }
-                    }
-                };
-            }
-            ClapOption::ShotWithSlurp {
-                pos_x,
-                pos_y,
-                width,
-                height,
-                usestdout,
-            } => match state.get_pos_display_ids((pos_x, pos_y), (width, height)) {
-                Some(ids) => {
-                    shot_with_regions(usestdout, &mut state, ids, (pos_x, pos_y, width, height));
-                }
-                None => {
-                    tracing::error!("Pos is over the screen");
-                    #[cfg(feature = "notify")]
-                    {
-                        use crate::constenv::{FAILED_IMAGE, TIMEOUT};
-                        use notify_rust::Notification;
-                        let _ = Notification::new()
-                            .summary("FileSavedFailed")
-                            .body("Pos is over the screen")
-                            .icon(FAILED_IMAGE)
-                            .timeout(TIMEOUT)
-                            .show();
-                    }
-                }
+fn capture_output(
+    state: &mut HaruhiShotState,
+    output: Option<String>,
+    use_stdout: bool,
+    pointer: bool,
+) -> Result<HaruhiShotResult, HaruhiImageWriteError> {
+    let outputs = state.outputs();
+    let names: Vec<&str> = outputs.iter().map(|info| info.name()).collect();
+
+    let selection = match output {
+        Some(name) => names
+            .iter()
+            .position(|tname| *tname == name)
+            .ok_or(HaruhiImageWriteError::OutputNotExist)?,
+        None => FuzzySelect::with_theme(&ColorfulTheme::default())
+            .with_prompt("Choose Screen")
+            .default(0)
+            .items(&names)
+            .interact()?,
+    };
+
+    let output = outputs[selection].clone();
+    let image_info = state.capture_single_output(pointer.to_capture_option(), output)?;
+
+    write_to_image(image_info, use_stdout)
+}
+
+fn capture_area(
+    state: &mut HaruhiShotState,
+    use_stdout: bool,
+    pointer: bool,
+) -> Result<HaruhiShotResult, HaruhiImageWriteError> {
+    let ImageViewInfo {
+        info:
+            ImageInfo {
+                data,
+                width: img_width,
+                height: img_height,
+                color_type,
             },
-            #[cfg(feature = "sway")]
-            ClapOption::ShotWindow => {
-                let th = swayloop::get_window();
-                swayloop::swaylayer();
-                loop {
-                    std::thread::sleep(std::time::Duration::from_millis(10));
-                    if let Ok(can_exit) = swayloop::CAN_EXIT.lock() {
-                        if let swayloop::SwayWindowSelect::Finish = *can_exit {
-                            let _ = th.join();
-                            break;
-                        }
-                    }
-                }
+        region:
+            Region {
+                position: Position { x, y },
+                size: Size { width, height },
+            },
+    } = state.capture_area(pointer.to_capture_option(), |w_conn: &HaruhiShotState| {
+        let info = libwaysip::get_area(
+            Some(libwaysip::WaysipConnection {
+                connection: w_conn.connection(),
+                globals: w_conn.globals(),
+            }),
+            libwaysip::SelectionType::Area,
+        )
+        .map_err(|e| libharuhishot::Error::CaptureFailed(e.to_string()))?
+        .ok_or(libharuhishot::Error::CaptureFailed(
+            "Failed to capture the area".to_string(),
+        ))?;
+        waysip_to_region(info.size(), info.left_top_point())
+    })?;
 
-                if let Ok(window) = swayloop::FINAL_WINDOW.lock() {
-                    let (pos_x, pos_y, width, height) = *window;
-                    println!("{pos_x},{pos_y},{width}, {height}");
-                    match state.get_pos_display_ids((pos_x, pos_y), (width, height)) {
-                        Some(ids) => {
-                            shot_with_regions(
-                                false,
-                                &mut state,
-                                ids,
-                                (pos_x, pos_y, width, height),
-                            );
-                        }
-                        None => {
-                            tracing::error!("Pos is over the screen");
-                            #[cfg(feature = "notify")]
-                            {
-                                use crate::constenv::{FAILED_IMAGE, TIMEOUT};
-                                use notify_rust::Notification;
-                                let _ = Notification::new()
-                                    .summary("FileSavedFailed")
-                                    .body("Pos is over the screen")
-                                    .icon(FAILED_IMAGE)
-                                    .timeout(TIMEOUT)
-                                    .show();
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    let mut buff = std::io::Cursor::new(Vec::new());
+    PngEncoder::new(&mut buff).write_image(&data, img_width, img_height, color_type.into())?;
+    let img = image::load_from_memory_with_format(buff.get_ref(), image::ImageFormat::Png).unwrap();
+    let clipimage = img.view(x as u32, y as u32, width as u32, height as u32);
+    if use_stdout {
+        let mut buff = std::io::Cursor::new(Vec::new());
+        clipimage
+            .to_image()
+            .write_to(&mut buff, image::ImageFormat::Png)?;
+        let content = buff.get_ref();
+        let stdout = stdout();
+        let mut writer = BufWriter::new(stdout.lock());
+        writer.write_all(content)?;
+        Ok(HaruhiShotResult::StdoutSucceeded)
     } else {
-        #[cfg(feature = "notify")]
-        {
-            use crate::constenv::{FAILED_IMAGE, TIMEOUT};
-            use notify_rust::Notification;
+        let file = random_file_path();
+        clipimage.to_image().save(&file)?;
+        Ok(HaruhiShotResult::SaveToFile(file))
+    }
+}
+fn get_color(state: &mut HaruhiShotState) -> Result<HaruhiShotResult, HaruhiImageWriteError> {
+    let ImageViewInfo {
+        info:
+            ImageInfo {
+                data,
+                width: img_width,
+                height: img_height,
+                color_type,
+            },
+        region:
+            Region {
+                position: Position { x, y },
+                size: Size { width, height },
+            },
+    } = state.capture_area(CaptureOption::None, |w_conn: &HaruhiShotState| {
+        let info = libwaysip::get_area(
+            Some(libwaysip::WaysipConnection {
+                connection: w_conn.connection(),
+                globals: w_conn.globals(),
+            }),
+            libwaysip::SelectionType::Point,
+        )
+        .map_err(|e| libharuhishot::Error::CaptureFailed(e.to_string()))?
+        .ok_or(libharuhishot::Error::CaptureFailed(
+            "Failed to capture the area".to_string(),
+        ))?;
+        waysip_to_region(info.size(), info.left_top_point())
+    })?;
+
+    let mut buff = std::io::Cursor::new(Vec::new());
+    PngEncoder::new(&mut buff).write_image(&data, img_width, img_height, color_type.into())?;
+    let img = image::load_from_memory_with_format(buff.get_ref(), image::ImageFormat::Png).unwrap();
+
+    let clipimage = img.view(x as u32, y as u32, width as u32, height as u32);
+    let pixel = clipimage.get_pixel(0, 0);
+    println!(
+        "RGB: R:{}, G:{}, B:{}, A:{}",
+        pixel.0[0], pixel.0[1], pixel.0[2], pixel[3]
+    );
+    println!(
+        "16hex: #{:02x}{:02x}{:02x}{:02x}",
+        pixel.0[0], pixel.0[1], pixel.0[2], pixel[3]
+    );
+    Ok(HaruhiShotResult::ColorSucceeded)
+}
+
+fn notify_result(shot_result: Result<HaruhiShotResult, HaruhiImageWriteError>) {
+    use notify_rust::Notification;
+    match shot_result {
+        Ok(HaruhiShotResult::StdoutSucceeded) => {
             let _ = Notification::new()
-                .summary("FileSavedFailed")
-                .body("Cannot get Data")
+                .summary("Screenshot Succeed")
+                .body("Screenshot Succeed")
+                .icon(SUCCEED_IMAGE)
+                .timeout(TIMEOUT)
+                .show();
+        }
+        Ok(HaruhiShotResult::SaveToFile(file)) => {
+            let file_name = file.to_string_lossy().to_string();
+            let _ = Notification::new()
+                .summary("File Saved SUcceed")
+                .body(format!("File Saved to {file:?}").as_str())
+                .icon(&file_name)
+                .timeout(TIMEOUT)
+                .show();
+        }
+        Ok(HaruhiShotResult::ColorSucceeded) => {}
+        Err(e) => {
+            let _ = Notification::new()
+                .summary("File Saved Failed")
+                .body(&e.to_string())
                 .icon(FAILED_IMAGE)
                 .timeout(TIMEOUT)
                 .show();
         }
-        tracing::error!("You have not choose screen");
     }
+}
+
+pub fn waysip_to_region(
+    size: libwaysip::Size,
+    point: libwaysip::Point,
+) -> Result<Region, libharuhishot::Error> {
+    let size: Size = Size {
+        width: size.width,
+        height: size.height,
+    };
+    let position: Position = Position {
+        x: point.x,
+        y: point.y,
+    };
+
+    Ok(Region { position, size })
+}
+
+fn main() {
+    tracing_subscriber::fmt()
+        .with_writer(std::io::stderr)
+        .init();
+    let args = HaruhiCli::parse();
+    let mut state =
+        HaruhiShotState::init().expect("Your wm needs to support Image Copy Capture protocol");
+
+    match args {
+        HaruhiCli::ListOutputs => {
+            state.print_displays_info();
+        }
+        HaruhiCli::Output {
+            output,
+            stdout,
+            cursor: pointer,
+        } => notify_result(capture_output(&mut state, output, stdout, pointer)),
+        HaruhiCli::Slurp {
+            stdout,
+            cursor: pointer,
+        } => {
+            notify_result(capture_area(&mut state, stdout, pointer));
+        }
+        HaruhiCli::Color => {
+            notify_result(get_color(&mut state));
+        }
+    }
+}
+
+fn write_to_image(
+    image_info: ImageInfo,
+    use_stdout: bool,
+) -> Result<HaruhiShotResult, HaruhiImageWriteError> {
+    if use_stdout {
+        write_to_stdout(image_info)
+    } else {
+        write_to_file(image_info)
+    }
+}
+
+fn write_to_stdout(
+    ImageInfo {
+        data,
+        width,
+        height,
+        color_type,
+    }: ImageInfo,
+) -> Result<HaruhiShotResult, HaruhiImageWriteError> {
+    let stdout = stdout();
+    let mut writer = BufWriter::new(stdout.lock());
+    PngEncoder::new(&mut writer).write_image(&data, width, height, color_type.into())?;
+    Ok(HaruhiShotResult::StdoutSucceeded)
+}
+
+fn write_to_file(
+    ImageInfo {
+        data,
+        width,
+        height,
+        color_type,
+    }: ImageInfo,
+) -> Result<HaruhiShotResult, HaruhiImageWriteError> {
+    let file = random_file_path();
+    let mut writer =
+        std::fs::File::create(&file).map_err(HaruhiImageWriteError::FileCreatedFailed)?;
+
+    PngEncoder::new(&mut writer).write_image(&data, width, height, color_type.into())?;
+    Ok(HaruhiShotResult::SaveToFile(file))
 }

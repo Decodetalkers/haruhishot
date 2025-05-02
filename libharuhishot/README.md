@@ -10,12 +10,9 @@ The lib is simple enough to use, you can take the haruhishot for example, simple
 use libharuhishot::HaruhiShotState;
 fn main() {
   let mut state = HaruhiShotState::init().unwrap();
-  let buffer = state.capture_out_frame(
-       &state.display[0].clone,
-       state.display_logic_size[0],
-       state.display_transform[id],
-       None
-  ).unwrap();
+  let outputs = state.outputs();
+  let output = outputs[0].clone();
+  let image_info = state.shot_single_output(output).unwrap();
 }
 
 ```

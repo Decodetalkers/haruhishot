@@ -2,23 +2,11 @@ project('haruhishot', 'rust', version: '0.4.0', meson_version: '>= 0.60')
 
 dependency('wayland-client')
 
-cargo = find_program('cargo', version: '>= 1.66')
+cargo = find_program('cargo', version: '>= 1.80')
 
-find_program('rustc', version: '>= 1.66')
+find_program('rustc', version: '>= 1.80')
 
 command = [cargo, 'build']
-
-if get_option('enable-notify')
-  command += ['--features', 'notify']
-endif
-
-if get_option('enable-gui')
-  command += ['--features', 'gui']
-endif
-
-if get_option('enable-swayipc')
-  command += ['--features', 'sway']
-endif
 
 targetdir = 'debug'
 
@@ -49,10 +37,8 @@ custom_target(
   command: command,
 )
 
-if get_option('enable-notify')
-  install_data('misc/haruhi_failed.png', install_dir: icondir)
-  install_data('misc/haruhi_succeed.png.png', install_dir: icondir)
-endif
+install_data('misc/haruhi_failed.png', install_dir: icondir)
+install_data('misc/haruhi_succeeded.png', install_dir: icondir)
 
 if get_option('man-pages')
   manpage = get_option('mandir')

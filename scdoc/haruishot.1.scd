@@ -10,7 +10,7 @@ Screenshot for wlroots
 
 # COMMANDS
 
-*list_outputs (--list_outputs) (-L)*
+*list_outputs (--list-outputs) (-L)*
 	Get the Display Information
 
 *slurp (--slurp) (-S)* [--stdout]
@@ -18,12 +18,12 @@ Screenshot for wlroots
 	
 	Examples:
 		```
-		haruhishot -S (slurp -d)
+		haruhishot -S
 		```
 	Use "--stdout: will print the image to console, you can copy it to clipboard
 	Examples:
 		```
-		haruhishot -S (slurp -d) --stdout | wl-copy
+		haruhishot -S --stdout | wl-copy
 		```
 
 *global* [--stdout]
