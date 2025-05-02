@@ -1,4 +1,4 @@
-project('haruhishot', 'rust', version: '0.4.0', meson_version: '>= 0.60')
+project('haruhishot', 'rust', version: '0.5.0-rc1', meson_version: '>= 0.60')
 
 dependency('wayland-client')
 

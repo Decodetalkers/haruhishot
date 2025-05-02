@@ -1,5 +1,5 @@
 [workspace.package]
-version = "0.4.0"
+version = "0.5.0-rc1"
 edition = "2024"
 license = "MIT"
 description = "impl screencopy for wayland"
@@ -41,7 +41,7 @@ nix = { version = "0.30.0", features = ["fs", "mman"] }
 memmap2 = "0.9.5"
 
 [dependencies]
-libharuhishot = { path = "libharuhishot", version = "0.4.0" }
+libharuhishot = { path = "libharuhishot", version = "0.5.0-rc1" }
 
 image.workspace = true
 memmap2.workspace = true
