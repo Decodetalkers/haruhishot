@@ -23,7 +23,7 @@ pub enum HaruhiCli {
     Output {
         #[arg(required = false)]
         output: Option<String>,
-        #[arg(value_name = "stdout", short = 'j')]
+        #[arg(value_name = "stdout", long)]
         stdout: bool,
     },
 }

@@ -8,18 +8,6 @@ find_program('rustc', version: '>= 1.66')
 
 command = [cargo, 'build']
 
-if get_option('enable-notify')
-  command += ['--features', 'notify']
-endif
-
-if get_option('enable-gui')
-  command += ['--features', 'gui']
-endif
-
-if get_option('enable-swayipc')
-  command += ['--features', 'sway']
-endif
-
 targetdir = 'debug'
 
 if not get_option('debug')
@@ -49,10 +37,8 @@ custom_target(
   command: command,
 )
 
-if get_option('enable-notify')
-  install_data('misc/haruhi_failed.png', install_dir: icondir)
-  install_data('misc/haruhi_succeed.png.png', install_dir: icondir)
-endif
+install_data('misc/haruhi_failed.png', install_dir: icondir)
+install_data('misc/haruhi_succeeded.png', install_dir: icondir)
 
 if get_option('man-pages')
   manpage = get_option('mandir')
