@@ -61,6 +61,7 @@ enum HaruhiImageWriteError {
 enum HaruhiShotResult {
     StdoutSucceeded,
     SaveToFile(PathBuf),
+    ColorSucceeded,
 }
 
 trait ToCaptureOption {
@@ -77,7 +78,7 @@ impl ToCaptureOption for bool {
     }
 }
 
-fn shot_output(
+fn capture_output(
     state: &mut HaruhiShotState,
     output: Option<String>,
     use_stdout: bool,
@@ -104,7 +105,7 @@ fn shot_output(
     write_to_image(image_info, use_stdout)
 }
 
-fn shot_area(
+fn capture_area(
     state: &mut HaruhiShotState,
     use_stdout: bool,
     pointer: bool,
@@ -157,6 +158,51 @@ fn shot_area(
         Ok(HaruhiShotResult::SaveToFile(file))
     }
 }
+fn get_color(state: &mut HaruhiShotState) -> Result<HaruhiShotResult, HaruhiImageWriteError> {
+    let ImageViewInfo {
+        info:
+            ImageInfo {
+                data,
+                width: img_width,
+                height: img_height,
+                color_type,
+            },
+        region:
+            Region {
+                position: Position { x, y },
+                size: Size { width, height },
+            },
+    } = state.capture_area(CaptureOption::None, |w_conn: &HaruhiShotState| {
+        let info = libwaysip::get_area(
+            Some(libwaysip::WaysipConnection {
+                connection: w_conn.connection(),
+                globals: w_conn.globals(),
+            }),
+            libwaysip::SelectionType::Point,
+        )
+        .map_err(|e| libharuhishot::Error::CaptureFailed(e.to_string()))?
+        .ok_or(libharuhishot::Error::CaptureFailed(
+            "Failed to capture the area".to_string(),
+        ))?;
+        waysip_to_region(info.size(), info.left_top_point())
+    })?;
+
+    let mut buff = std::io::Cursor::new(Vec::new());
+    PngEncoder::new(&mut buff).write_image(&data, img_width, img_height, color_type.into())?;
+    let img = image::load_from_memory_with_format(buff.get_ref(), image::ImageFormat::Png).unwrap();
+
+    let clipimage = img.view(x as u32, y as u32, width as u32, height as u32);
+    let pixel = clipimage.get_pixel(0, 0);
+    println!(
+        "RGB: R:{}, G:{}, B:{}, A:{}",
+        pixel.0[0], pixel.0[1], pixel.0[2], pixel[3]
+    );
+    println!(
+        "16hex: #{:02x}{:02x}{:02x}{:02x}",
+        pixel.0[0], pixel.0[1], pixel.0[2], pixel[3]
+    );
+    Ok(HaruhiShotResult::ColorSucceeded)
+}
 
 fn notify_result(shot_result: Result<HaruhiShotResult, HaruhiImageWriteError>) {
     use notify_rust::Notification;
@@ -178,6 +224,7 @@ fn notify_result(shot_result: Result<HaruhiShotResult, HaruhiImageWriteError>) {
                 .timeout(TIMEOUT)
                 .show();
         }
+        Ok(HaruhiShotResult::ColorSucceeded) => {}
         Err(e) => {
             let _ = Notification::new()
                 .summary("File Saved Failed")
@@ -221,12 +268,15 @@ fn main() {
             output,
             stdout,
             cursor: pointer,
-        } => notify_result(shot_output(&mut state, output, stdout, pointer)),
+        } => notify_result(capture_output(&mut state, output, stdout, pointer)),
         HaruhiCli::Slurp {
             stdout,
             cursor: pointer,
         } => {
-            notify_result(shot_area(&mut state, stdout, pointer));
+            notify_result(capture_area(&mut state, stdout, pointer));
+        }
+        HaruhiCli::Color => {
+            notify_result(get_color(&mut state));
         }
     }
 }

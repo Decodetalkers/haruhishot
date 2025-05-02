@@ -16,9 +16,6 @@ If you want to package it , you can use `meson.build`
   meson setup \
     -Dprefix=/usr \
     -Dbuildtype=release \
-    -Denable-notify=true \ # it is a feature of notify, can set it to false
-    -Denable-sway=true \ # it is a feature of notify, can set it to false
-    -Ddesktop-entry=true \ # it will install a desktop entry, can set it to false
     build
   ninja -C build
 ```
@@ -31,28 +28,16 @@ If you want to package it , you can use `meson.build`
 
 ## Use example
 
-Fullscreen ~~(No, just the first screen, just because I am not familiar with image.rs)~~ Finished fullscreen, just compile two images together
-
-```
-haruhishot -G --stdout | wl-copy
-```
-
-or
-
-```
-haruhishot --global --stdout > suzumiya.png
-```
-
 Pick with Region
 
 ```
-haruhishot -S (slurp -d) --stdout | wl-copy
+haruhishot -S --stdout | wl-copy
 ```
 
 or
 
 ```
-haruhishot --slurp (slurp -d) --stdout | wl-copy
+haruhishot --slurp --stdout | wl-copy
 ```
 
 Get Lists
@@ -63,7 +48,7 @@ haruhishot -L
 
 or
 ```
-haruhishot --list
+haruhishot --list-outputs
 ```
 
 Shot one screen
