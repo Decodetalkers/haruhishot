@@ -80,8 +80,7 @@ fn shot_output(
             .with_prompt("Choose Screen")
             .default(0)
             .items(&names)
-            .interact()
-            .map_err(HaruhiImageWriteError::FuzzySelectFailed)?,
+            .interact()?,
     };
 
     let output = outputs[selection].clone();
@@ -179,7 +178,7 @@ fn notify_result(shot_result: Result<HaruhiShotResult, HaruhiImageWriteError>) {
 pub fn waysip_to_region(
     size: libwaysip::Size,
     point: libwaysip::Point,
-) -> Result<libharuhishot::Region, libharuhishot::Error> {
+) -> Result<Region, libharuhishot::Error> {
     let size: Size = Size {
         width: size.width,
         height: size.height,
@@ -189,7 +188,7 @@ pub fn waysip_to_region(
         y: point.y,
     };
 
-    Ok(libharuhishot::Region { position, size })
+    Ok(Region { position, size })
 }
 
 fn main() {
