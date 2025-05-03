@@ -381,8 +381,6 @@ impl HaruhiShotState {
                 buffer,
                 real_width,
                 real_height,
-                width,
-                height,
                 transform,
                 ..
             } = data;
@@ -398,8 +396,8 @@ impl HaruhiShotState {
             );
 
             layer_surface.set_exclusive_zone(-1);
-            layer_surface.set_anchor(Anchor::Top | Anchor::Left);
-            layer_surface.set_size(*width, *height);
+            layer_surface.set_anchor(Anchor::all());
+            layer_surface.set_margin(0, 0, 0, 0);
 
             debug!("Committing surface creation changes.");
             surface.commit();
