@@ -129,7 +129,7 @@ pub struct ImageInfo {
 
 #[allow(unused)]
 #[derive(Debug, Clone)]
-struct ShotData {
+struct CaptureOutputData {
     output: WlOutput,
     buffer: WlBuffer,
     real_width: u32,
@@ -190,7 +190,7 @@ impl AreaSelectCallback for Region {
     }
 }
 impl HaruhiShotState {
-    fn shot_inner<T: AsFd>(
+    fn capture_output_inner<T: AsFd>(
         &mut self,
         WlOutputInfo {
             output,
@@ -205,7 +205,7 @@ impl HaruhiShotState {
         option: CaptureOption,
         fd: T,
         file: Option<&File>,
-    ) -> Result<ShotData, HaruhiError> {
+    ) -> Result<CaptureOutputData, HaruhiError> {
         let mut event_queue = self.take_event_queue();
         let img_manager = self.output_image_manager();
         let capture_manager = self.image_copy_capture_manager();
@@ -293,7 +293,7 @@ impl HaruhiShotState {
 
         self.reset_event_queue(event_queue);
 
-        Ok(ShotData {
+        Ok(CaptureOutputData {
             output,
             buffer,
             width,
@@ -308,6 +308,16 @@ impl HaruhiShotState {
         })
     }
 
+    pub fn capture_single_output_with_fd<F: AsFd>(
+        &mut self,
+        option: CaptureOption,
+        output: WlOutputInfo,
+        file: F,
+    ) -> Result<(), HaruhiError> {
+        self.capture_output_inner(output, option, file.as_fd(), None)?;
+        Ok(())
+    }
+
     /// Capture a single output
     pub fn capture_single_output(
         &mut self,
@@ -316,12 +326,12 @@ impl HaruhiShotState {
     ) -> Result<ImageInfo, HaruhiError> {
         let mem_fd = create_shm_fd().unwrap();
         let mem_file = File::from(mem_fd);
-        let ShotData {
+        let CaptureOutputData {
             width,
             height,
             frame_format,
             ..
-        } = self.shot_inner(output, option, mem_file.as_fd(), Some(&mem_file))?;
+        } = self.capture_output_inner(output, option, mem_file.as_fd(), Some(&mem_file))?;
 
         let mut frame_mmap = unsafe { MmapMut::map_mut(&mem_file).unwrap() };
 
@@ -351,7 +361,8 @@ impl HaruhiShotState {
         for data in outputs.into_iter() {
             let mem_fd = create_shm_fd().unwrap();
             let mem_file = File::from(mem_fd);
-            let data = self.shot_inner(data, option, mem_file.as_fd(), Some(&mem_file))?;
+            let data =
+                self.capture_output_inner(data, option, mem_file.as_fd(), Some(&mem_file))?;
             data_list.push(AreaShotInfo { data, mem_file })
         }
 
@@ -365,7 +376,7 @@ impl HaruhiShotState {
         let mut layer_shell_surfaces: Vec<(WlSurface, ZwlrLayerSurfaceV1)> =
             Vec::with_capacity(data_list.len());
         for AreaShotInfo { data, .. } in data_list.iter() {
-            let ShotData {
+            let CaptureOutputData {
                 output,
                 buffer,
                 real_width,
@@ -445,7 +456,7 @@ impl HaruhiShotState {
 }
 
 struct AreaShotInfo {
-    data: ShotData,
+    data: CaptureOutputData,
     mem_file: File,
 }
 
@@ -456,7 +467,7 @@ impl AreaShotInfo {
             position: point, ..
         }: Region,
     ) -> bool {
-        let ShotData {
+        let CaptureOutputData {
             real_width,
             real_height,
             screen_position: Position { x, y },
@@ -475,7 +486,7 @@ impl AreaShotInfo {
         if !self.in_this_screen(region) {
             return None;
         }
-        let ShotData {
+        let CaptureOutputData {
             real_width,
             real_height,
             width,

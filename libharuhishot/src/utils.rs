@@ -88,7 +88,7 @@ impl WlOutputInfo {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TopLevel {
     pub(crate) handle: ExtForeignToplevelHandleV1,
     pub(crate) title: String,
@@ -100,5 +100,13 @@ impl TopLevel {
             handle,
             title: "".to_string(),
         }
+    }
+
+    pub fn title(&self) -> &str {
+        &self.title
+    }
+
+    pub fn handle(&self) -> &ExtForeignToplevelHandleV1 {
+        &self.handle
     }
 }

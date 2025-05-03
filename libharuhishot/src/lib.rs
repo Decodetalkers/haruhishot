@@ -28,4 +28,8 @@ pub mod reexport {
     pub use wl_output::Transform;
     /// reexport wl_shm Format
     pub use wl_shm::Format;
+
+    pub mod ext_foreign_toplevel_handle_v1 {
+        pub use wayland_protocols::ext::foreign_toplevel_list::v1::client::ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1;
+    }
 }
