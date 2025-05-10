@@ -238,7 +238,7 @@ fn notify_result(shot_result: Result<HaruhiShotResult, HaruhiImageWriteError>) {
 
 pub fn waysip_to_region(
     size: libwaysip::Size,
-    point: libwaysip::Point,
+    point: libwaysip::Position,
 ) -> Result<Region, libharuhishot::Error> {
     let size: Size = Size {
         width: size.width,
