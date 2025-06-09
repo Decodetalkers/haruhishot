@@ -258,7 +258,7 @@ fn main() {
         .init();
     let args = HaruhiCli::parse();
     let mut state =
-        HaruhiShotState::init().expect("Your wm needs to support Image Copy Capture protocol");
+        HaruhiShotState::new().expect("Your wm needs to support Image Copy Capture protocol");
 
     match args {
         HaruhiCli::ListOutputs => {

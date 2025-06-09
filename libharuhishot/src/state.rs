@@ -114,8 +114,20 @@ impl HaruhiShotState {
         }
     }
 
-    pub fn init() -> Result<Self, HaruhiError> {
-        let conn = Connection::connect_to_env()?;
+    pub fn new() -> Result<Self, HaruhiError> {
+        Self::init(None)
+    }
+
+    pub fn new_with_connection(connection: Connection) -> Result<Self, HaruhiError> {
+        Self::init(Some(connection))
+    }
+
+    fn init(connection: Option<Connection>) -> Result<Self, HaruhiError> {
+        let conn = if let Some(conn) = connection {
+            conn
+        } else {
+            Connection::connect_to_env()?
+        };
 
         let (globals, mut event_queue) = registry_queue_init::<HaruhiShotState>(&conn)?; // We just need the
         let display = conn.display();
