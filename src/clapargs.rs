@@ -31,5 +31,5 @@ pub enum HaruhiCli {
         cursor: bool,
     },
     #[command(long_flag = "color", short_flag = 'C', about = "get color")]
-    Color
+    Color,
 }
