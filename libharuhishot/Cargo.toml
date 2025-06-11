@@ -6,6 +6,7 @@ license.workspace = true
 description = "impl screencopy for wayland"
 authors.workspace = true
 homepage.workspace = true
+repository.workspace = true
 documentation = "https://docs.rs/libharuhishot/"
 keywords = ["wayland"]
 readme = "README.md"
