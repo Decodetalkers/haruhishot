@@ -4,7 +4,7 @@ edition = "2024"
 license = "MIT"
 description = "impl screencopy for wayland"
 authors = ["Decodertalkers <aakari@tutanota.com>"]
-homepage = "https://github.com/Decodetalkers/haruhishot"
+repository = "https://github.com/Decodetalkers/haruhishot"
 documentation = "https://docs.rs/libharuhishot/"
 keywords = ["wayland"]
 
