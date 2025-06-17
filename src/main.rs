@@ -78,6 +78,26 @@ impl ToCaptureOption for bool {
     }
 }
 
+fn capture_toplevel(
+    state: &mut HaruhiShotState,
+    use_stdout: bool,
+    pointer: bool,
+) -> Result<HaruhiShotResult, HaruhiImageWriteError> {
+    let toplevels = state.toplevels();
+    let names: Vec<String> = toplevels.iter().map(|info| info.id_and_title()).collect();
+
+    let selection = FuzzySelect::with_theme(&ColorfulTheme::default())
+        .with_prompt("Choose Application")
+        .default(0)
+        .items(&names)
+        .interact()?;
+
+    let toplevel = toplevels[selection].clone();
+    let image_info = state.capture_toplevel(pointer.to_capture_option(), toplevel)?;
+
+    write_to_image(image_info, use_stdout)
+}
+
 fn capture_output(
     state: &mut HaruhiShotState,
     output: Option<String>,
@@ -264,6 +284,10 @@ fn main() {
         HaruhiCli::ListOutputs => {
             state.print_displays_info();
         }
+        HaruhiCli::Application {
+            stdout,
+            cursor: pointer,
+        } => notify_result(capture_toplevel(&mut state, stdout, pointer)),
         HaruhiCli::Output {
             output,
             stdout,

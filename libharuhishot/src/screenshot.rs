@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    HaruhiShotState, WlOutputInfo,
+    HaruhiShotState, TopLevel, WlOutputInfo,
     haruhierror::HaruhiError,
     overlay::LayerShellState,
     state::{CaptureInfo, CaptureState, FrameInfo},
@@ -143,6 +143,17 @@ struct CaptureOutputData {
     screen_position: Position,
 }
 
+#[allow(unused)]
+#[derive(Debug, Clone)]
+struct CaptureTopLevelData {
+    buffer: WlBuffer,
+    width: u32,
+    height: u32,
+    frame_bytes: u32,
+    stride: u32,
+    frame_format: wl_shm::Format,
+    transform: wl_output::Transform,
+}
 /// Image view means what part to use
 /// When use the project, every time you will get a picture of the full screen,
 /// and when you do area screenshot, This lib will also provide you with the view of the selected
@@ -190,6 +201,111 @@ impl AreaSelectCallback for Region {
     }
 }
 impl HaruhiShotState {
+    fn capture_toplevel_inner<T: AsFd>(
+        &mut self,
+        TopLevel { handle, .. }: TopLevel,
+        option: CaptureOption,
+        fd: T,
+        file: Option<&File>,
+    ) -> Result<CaptureTopLevelData, HaruhiError> {
+        let mut event_queue = self.take_event_queue();
+        let img_manager = self.toplevel_image_manager();
+        let capture_manager = self.image_copy_capture_manager();
+        let qh = self.qhandle();
+
+        let source = img_manager.create_source(&handle, qh, ());
+        let info = Arc::new(RwLock::new(FrameInfo::default()));
+        let session = capture_manager.create_session(&source, option.into(), qh, info.clone());
+
+        let capture_info = CaptureInfo::new();
+        let frame = session.create_frame(qh, capture_info.clone());
+        event_queue.blocking_dispatch(self).unwrap();
+        let qh = self.qhandle();
+
+        let shm = self.shm();
+        let info = info.read().unwrap();
+
+        let Size { width, height } = info.size();
+        let WEnum::Value(frame_format) = info.format() else {
+            return Err(HaruhiError::NotSupportFormat);
+        };
+        if !matches!(
+            frame_format,
+            wl_shm::Format::Xbgr2101010
+                | wl_shm::Format::Abgr2101010
+                | wl_shm::Format::Argb8888
+                | wl_shm::Format::Xrgb8888
+                | wl_shm::Format::Xbgr8888
+        ) {
+            return Err(HaruhiError::NotSupportFormat);
+        }
+        let frame_bytes = 4 * height * width;
+        let mem_fd = fd.as_fd();
+
+        if let Some(file) = file {
+            file.set_len(frame_bytes as u64).unwrap();
+        }
+
+        let stride = 4 * width;
+
+        let shm_pool = shm.create_pool(mem_fd, (width * height * 4) as i32, qh, ());
+        let buffer = shm_pool.create_buffer(
+            0,
+            width as i32,
+            height as i32,
+            stride as i32,
+            frame_format,
+            qh,
+            (),
+        );
+        frame.attach_buffer(&buffer);
+        frame.capture();
+
+        let transform;
+        loop {
+            event_queue.blocking_dispatch(self)?;
+            let info = capture_info.read().unwrap();
+            match info.state() {
+                CaptureState::Succeeded => {
+                    transform = info.transform();
+                    break;
+                }
+                CaptureState::Failed(info) => match info {
+                    WEnum::Value(reason) => match reason {
+                        FailureReason::Stopped => {
+                            return Err(HaruhiError::CaptureFailed("Stopped".to_owned()));
+                        }
+
+                        FailureReason::BufferConstraints => {
+                            return Err(HaruhiError::CaptureFailed("BufferConstraints".to_owned()));
+                        }
+                        FailureReason::Unknown | _ => {
+                            return Err(HaruhiError::CaptureFailed("Unknown".to_owned()));
+                        }
+                    },
+                    WEnum::Unknown(code) => {
+                        return Err(HaruhiError::CaptureFailed(format!(
+                            "Unknown reason, code : {code}"
+                        )));
+                    }
+                },
+                CaptureState::Pending => {}
+            }
+        }
+
+        self.reset_event_queue(event_queue);
+
+        Ok(CaptureTopLevelData {
+            transform,
+            buffer,
+            width,
+            height,
+            frame_bytes,
+            stride,
+            frame_format,
+        })
+    }
+
     fn capture_output_inner<T: AsFd>(
         &mut self,
         WlOutputInfo {
@@ -332,6 +448,34 @@ impl HaruhiShotState {
             frame_format,
             ..
         } = self.capture_output_inner(output, option, mem_file.as_fd(), Some(&mem_file))?;
+
+        let mut frame_mmap = unsafe { MmapMut::map_mut(&mem_file).unwrap() };
+
+        let converter = crate::convert::create_converter(frame_format).unwrap();
+        let color_type = converter.convert_inplace(&mut frame_mmap);
+
+        Ok(ImageInfo {
+            data: frame_mmap.deref().into(),
+            width,
+            height,
+            color_type,
+        })
+    }
+
+    /// Capture a single output
+    pub fn capture_toplevel(
+        &mut self,
+        option: CaptureOption,
+        toplevel: TopLevel,
+    ) -> Result<ImageInfo, HaruhiError> {
+        let mem_fd = create_shm_fd().unwrap();
+        let mem_file = File::from(mem_fd);
+        let CaptureTopLevelData {
+            width,
+            height,
+            frame_format,
+            ..
+        } = self.capture_toplevel_inner(toplevel, option, mem_file.as_fd(), Some(&mem_file))?;
 
         let mut frame_mmap = unsafe { MmapMut::map_mut(&mem_file).unwrap() };
 

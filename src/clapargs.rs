@@ -30,6 +30,13 @@ pub enum HaruhiCli {
         #[arg(value_name = "pointer", long, default_value = "false")]
         cursor: bool,
     },
+    #[command(long_flag = "application", about = "application shot")]
+    Application {
+        #[arg(value_name = "stdout", long)]
+        stdout: bool,
+        #[arg(value_name = "pointer", long, default_value = "false")]
+        cursor: bool,
+    },
     #[command(long_flag = "color", short_flag = 'C', about = "get color")]
     Color,
 }

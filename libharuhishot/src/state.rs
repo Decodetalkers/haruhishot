@@ -45,6 +45,7 @@ pub struct HaruhiShotState {
     output_infos: Vec<WlOutputInfo>,
     img_copy_manager: OnceLock<ExtImageCopyCaptureManagerV1>,
     output_image_manager: OnceLock<ExtOutputImageCaptureSourceManagerV1>,
+    toplevel_image_manager: OnceLock<ExtForeignToplevelImageCaptureSourceManagerV1>,
     shm: OnceLock<WlShm>,
     qh: OnceLock<QueueHandle<Self>>,
     event_queue: Option<EventQueue<Self>>,
@@ -56,9 +57,15 @@ impl HaruhiShotState {
     pub(crate) fn image_copy_capture_manager(&self) -> &ExtImageCopyCaptureManagerV1 {
         self.img_copy_manager.get().expect("Should init")
     }
+
     pub(crate) fn output_image_manager(&self) -> &ExtOutputImageCaptureSourceManagerV1 {
         self.output_image_manager.get().expect("Should init")
     }
+
+    pub(crate) fn toplevel_image_manager(&self) -> &ExtForeignToplevelImageCaptureSourceManagerV1 {
+        self.toplevel_image_manager.get().expect("Should init")
+    }
+
     pub(crate) fn qhandle(&self) -> &QueueHandle<Self> {
         self.qh.get().expect("Should init")
     }
@@ -78,6 +85,11 @@ impl HaruhiShotState {
     /// get all outputs and their info
     pub fn outputs(&self) -> &Vec<WlOutputInfo> {
         &self.output_infos
+    }
+
+    /// get all outputs and their info
+    pub fn toplevels(&self) -> &Vec<TopLevel> {
+        &self.toplevels
     }
 
     pub fn connection(&self) -> &Connection {
@@ -141,6 +153,9 @@ impl HaruhiShotState {
         let image_manager = globals.bind::<ExtImageCopyCaptureManagerV1, _, _>(&qh, 1..=1, ())?;
         let output_image_manager =
             globals.bind::<ExtOutputImageCaptureSourceManagerV1, _, _>(&qh, 1..=1, ())?;
+        let toplevel_image_manager = globals
+            .bind::<ExtForeignToplevelImageCaptureSourceManagerV1, _, _>(&qh, 1..=1, ())
+            .ok();
         let shm = globals.bind::<WlShm, _, _>(&qh, 1..=2, ())?;
         globals.bind::<ExtForeignToplevelListV1, _, _>(&qh, 1..=1, ())?;
         let the_xdg_output_manager = globals.bind::<ZxdgOutputManagerV1, _, _>(&qh, 3..=3, ())?;
@@ -152,6 +167,12 @@ impl HaruhiShotState {
 
         event_queue.blocking_dispatch(&mut state)?;
 
+        if let Some(toplevel_image_manager) = toplevel_image_manager {
+            state
+                .toplevel_image_manager
+                .set(toplevel_image_manager)
+                .unwrap();
+        }
         state.img_copy_manager.set(image_manager).unwrap();
         state
             .output_image_manager
@@ -394,17 +415,39 @@ impl Dispatch<ExtForeignToplevelHandleV1, ()> for HaruhiShotState {
         _conn: &Connection,
         _qhandle: &wayland_client::QueueHandle<Self>,
     ) {
-        let ext_foreign_toplevel_handle_v1::Event::Title { title } = event else {
-            return;
-        };
-        let Some(current_info) = state
-            .toplevels
-            .iter_mut()
-            .find(|my_toplevel| my_toplevel.handle == *toplevel)
-        else {
-            return;
-        };
-        current_info.title = title;
+        match event {
+            ext_foreign_toplevel_handle_v1::Event::Title { title } => {
+                let Some(current_info) = state
+                    .toplevels
+                    .iter_mut()
+                    .find(|my_toplevel| my_toplevel.handle == *toplevel)
+                else {
+                    return;
+                };
+                current_info.title = title;
+            }
+            ext_foreign_toplevel_handle_v1::Event::AppId { app_id } => {
+                let Some(current_info) = state
+                    .toplevels
+                    .iter_mut()
+                    .find(|my_toplevel| my_toplevel.handle == *toplevel)
+                else {
+                    return;
+                };
+                current_info.app_id = app_id;
+            }
+            ext_foreign_toplevel_handle_v1::Event::Identifier { identifier } => {
+                let Some(current_info) = state
+                    .toplevels
+                    .iter_mut()
+                    .find(|my_toplevel| my_toplevel.handle == *toplevel)
+                else {
+                    return;
+                };
+                current_info.identifier = identifier;
+            }
+            _ => {}
+        }
     }
 }
 

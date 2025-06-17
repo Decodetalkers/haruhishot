@@ -92,18 +92,33 @@ impl WlOutputInfo {
 pub struct TopLevel {
     pub(crate) handle: ExtForeignToplevelHandleV1,
     pub(crate) title: String,
+    pub(crate) app_id: String,
+    pub(crate) identifier: String,
 }
 
 impl TopLevel {
     pub(crate) fn new(handle: ExtForeignToplevelHandleV1) -> Self {
         Self {
             handle,
-            title: "".to_string(),
+            title: "".to_owned(),
+            app_id: "".to_owned(),
+            identifier: "".to_owned(),
         }
     }
 
     pub fn title(&self) -> &str {
         &self.title
+    }
+    pub fn app_id(&self) -> &str {
+        &self.app_id
+    }
+
+    pub fn identifier(&self) -> &str {
+        &self.identifier
+    }
+
+    pub fn id_and_title(&self) -> String {
+        format!("{} {}", self.app_id(), self.title())
     }
 
     pub fn handle(&self) -> &ExtForeignToplevelHandleV1 {
