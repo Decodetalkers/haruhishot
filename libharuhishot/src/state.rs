@@ -446,6 +446,16 @@ impl Dispatch<ExtForeignToplevelHandleV1, ()> for HaruhiShotState {
                 };
                 current_info.identifier = identifier;
             }
+            ext_foreign_toplevel_handle_v1::Event::Closed => {
+                let Some(current_info) = state
+                    .toplevels
+                    .iter_mut()
+                    .find(|my_toplevel| my_toplevel.handle == *toplevel)
+                else {
+                    return;
+                };
+                current_info.active = false;
+            }
             _ => {}
         }
     }

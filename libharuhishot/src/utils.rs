@@ -94,6 +94,7 @@ pub struct TopLevel {
     pub(crate) title: String,
     pub(crate) app_id: String,
     pub(crate) identifier: String,
+    pub(crate) active: bool,
 }
 
 impl TopLevel {
@@ -103,6 +104,7 @@ impl TopLevel {
             title: "".to_owned(),
             app_id: "".to_owned(),
             identifier: "".to_owned(),
+            active: true,
         }
     }
 
@@ -123,5 +125,9 @@ impl TopLevel {
 
     pub fn handle(&self) -> &ExtForeignToplevelHandleV1 {
         &self.handle
+    }
+
+    pub fn active(&self) -> bool {
+        self.active
     }
 }
