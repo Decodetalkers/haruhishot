@@ -533,7 +533,7 @@ impl HaruhiShotState {
             let layer_surface = layer_shell.get_layer_surface(
                 &surface,
                 Some(output),
-                Layer::Top,
+                Layer::Overlay,
                 "wayshot".to_string(),
                 &qh,
                 output.clone(),
