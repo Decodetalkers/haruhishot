@@ -144,17 +144,14 @@ fn capture_area(
                 size: Size { width, height },
             },
     } = state.capture_area(pointer.to_capture_option(), |w_conn: &HaruhiShotState| {
-        let info = libwaysip::get_area(
-            Some(libwaysip::WaysipConnection {
-                connection: w_conn.connection(),
-                globals: w_conn.globals(),
-            }),
-            libwaysip::SelectionType::Area,
-        )
-        .map_err(|e| libharuhishot::Error::CaptureFailed(e.to_string()))?
-        .ok_or(libharuhishot::Error::CaptureFailed(
-            "Failed to capture the area".to_string(),
-        ))?;
+        let info = libwaysip::WaySip::new()
+            .with_connection(w_conn.connection().clone())
+            .with_selection_type(libwaysip::SelectionType::Area)
+            .get()
+            .map_err(|e| libharuhishot::Error::CaptureFailed(e.to_string()))?
+            .ok_or(libharuhishot::Error::CaptureFailed(
+                "Failed to capture the area".to_string(),
+            ))?;
         waysip_to_region(info.size(), info.left_top_point())
     })?;
 
@@ -193,17 +190,14 @@ fn get_color(state: &mut HaruhiShotState) -> Result<HaruhiShotResult, HaruhiImag
                 size: Size { width, height },
             },
     } = state.capture_area(CaptureOption::None, |w_conn: &HaruhiShotState| {
-        let info = libwaysip::get_area(
-            Some(libwaysip::WaysipConnection {
-                connection: w_conn.connection(),
-                globals: w_conn.globals(),
-            }),
-            libwaysip::SelectionType::Point,
-        )
-        .map_err(|e| libharuhishot::Error::CaptureFailed(e.to_string()))?
-        .ok_or(libharuhishot::Error::CaptureFailed(
-            "Failed to capture the area".to_string(),
-        ))?;
+        let info = libwaysip::WaySip::new()
+            .with_connection(w_conn.connection().clone())
+            .with_selection_type(libwaysip::SelectionType::Point)
+            .get()
+            .map_err(|e| libharuhishot::Error::CaptureFailed(e.to_string()))?
+            .ok_or(libharuhishot::Error::CaptureFailed(
+                "Failed to capture the area".to_string(),
+            ))?;
         waysip_to_region(info.size(), info.left_top_point())
     })?;
 

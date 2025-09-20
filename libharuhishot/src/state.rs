@@ -310,13 +310,11 @@ impl Dispatch<wl_registry::WlRegistry, ()> for HaruhiShotState {
             interface,
             version,
         } = event
-        {
-            if interface == WlOutput::interface().name {
+            && interface == WlOutput::interface().name {
                 state
                     .output_infos
                     .push(WlOutputInfo::new(proxy.bind(name, version, qh, ())));
             }
-        }
     }
 }
 
