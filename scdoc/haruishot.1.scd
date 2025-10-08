@@ -30,9 +30,6 @@ Screenshot for wlroots
 	Take screenshot for all there screen, this will combine all screens together
 	"--stdout" is the same
 
-*gui*
-	This will open a qt fontend for you to take screenshot
-
 *output (--output) (-O)* [--stdout]
 	Choose screen to takescreen. There is always screen name after `-O`, you can
 	get it with `swaymsg` or `list_outputs` option. If you do not give a variable

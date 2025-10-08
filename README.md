@@ -83,7 +83,7 @@ haruhishot --color
 
 ## TODO
 
-* I want to add a slint fontend
+* I want to add a slint frontend
 * ~~Real Fullscreen shot~~
 * In the code of wayshot, it seems need to make change if meet some format, but it works well on my computer, so..
 
