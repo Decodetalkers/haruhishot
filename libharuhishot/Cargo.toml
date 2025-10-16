@@ -35,6 +35,6 @@ memmap2 = "0.9.8"
 # in the feature
 tracing = "0.1.41"
 
-thiserror = "2.0.16"
+thiserror = "2.0.17"
 
 image.workspace = true
