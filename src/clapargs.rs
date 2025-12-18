@@ -1,4 +1,4 @@
-use clap::{Parser, arg};
+use clap::Parser;
 
 #[derive(Debug, Parser, PartialEq, Eq)]
 #[command(

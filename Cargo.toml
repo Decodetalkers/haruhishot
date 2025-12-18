@@ -57,4 +57,4 @@ dialoguer = { version = "0.12.0", features = ["fuzzy-select"] }
 wayland-client.workspace = true
 thiserror.workspace = true
 notify-rust = { version = "4.11.7", features = ["images"] }
-libwaysip = "0.5.0"
+libwaysip = "0.6.0"
