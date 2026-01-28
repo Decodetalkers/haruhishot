@@ -39,7 +39,7 @@ wayland-protocols = { version = "0.32.9", default-features = false, features = [
 ] }
 thiserror = "2.0.17"
 
-nix = { version = "0.30.1", features = ["fs", "mman"] }
+nix = { version = "0.31.1", features = ["fs", "mman"] }
 memmap2 = "0.9.8"
 
 [dependencies]
