@@ -73,6 +73,16 @@ impl WlOutputInfo {
     pub fn wl_output(&self) -> &WlOutput {
         &self.output
     }
+
+    /// get the position
+    pub fn position(&self) -> Position {
+        self.position
+    }
+
+    /// get the logical size
+    pub fn logical_size(&self) -> Size {
+        self.logical_size
+    }
     pub(crate) fn new(output: WlOutput) -> Self {
         Self {
             output,
