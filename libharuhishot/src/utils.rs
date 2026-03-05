@@ -1,4 +1,7 @@
-use std::{ops::Sub, sync::OnceLock};
+use std::{
+    ops::{Add, Sub},
+    sync::OnceLock,
+};
 
 use wayland_client::protocol::wl_output::{self, WlOutput};
 use wayland_protocols::{
@@ -39,10 +42,48 @@ where
     }
 }
 
+impl<T> Add for Position<T>
+where
+    T: Add<Output = T> + Default,
+{
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct Region {
     pub position: Position,
     pub size: Size,
+}
+#[derive(Debug, Clone, Copy)]
+pub struct ClipRegion {
+    pub relative_region_real: Region,
+    pub relative_region_wl: Region,
+    pub display_region: Region,
+}
+
+impl ClipRegion {
+    pub fn absolute_position_real(&self) -> Position {
+        let position = self.display_region.position;
+        position + self.relative_region_real.position
+    }
+    pub fn relative_position_real(&self) -> Position {
+        self.relative_region_real.position
+    }
+    pub fn relative_position_wl(&self) -> Position {
+        self.relative_region_wl.position
+    }
+    pub fn clip_size_wl(&self) -> Size {
+        self.relative_region_wl.size
+    }
+    pub fn clip_size_real(&self) -> Size {
+        self.relative_region_real.size
+    }
 }
 
 /// contain the output and their messages
