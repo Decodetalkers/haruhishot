@@ -43,7 +43,7 @@ nix = { version = "0.31.1", features = ["fs", "mman"] }
 memmap2 = "0.9.10"
 
 [dependencies]
-libharuhishot = { path = "libharuhishot", version = "0.5.0" }
+libharuhishot = { path = "libharuhishot", version = "0.6.0" }
 
 image.workspace = true
 memmap2.workspace = true
