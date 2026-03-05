@@ -1,4 +1,7 @@
-use std::{ops::Sub, sync::OnceLock};
+use std::{
+    ops::{Add, Sub},
+    sync::OnceLock,
+};
 
 use wayland_client::protocol::wl_output::{self, WlOutput};
 use wayland_protocols::{
@@ -39,10 +42,61 @@ where
     }
 }
 
+impl<T> Add for Position<T>
+where
+    T: Add<Output = T> + Default,
+{
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct Region {
     pub position: Position,
     pub size: Size,
+}
+
+/// Describe the information about clip area
+#[derive(Debug, Clone, Copy)]
+pub struct ClipRegion {
+    /// It describes the region in real world
+    pub relative_region_real: Region,
+    /// It describes the region in wayland world
+    pub relative_region_wl: Region,
+    /// display_region, in real world
+    pub display_region: Region,
+}
+
+impl ClipRegion {
+    /// the the real absolute position
+    /// NOTE: no wayland version, because the screen position is real
+    pub fn absolute_position_real(&self) -> Position {
+        let position = self.display_region.position;
+        position + self.relative_region_real.position
+    }
+
+    /// get the relative position in real world
+    pub fn relative_position_real(&self) -> Position {
+        self.relative_region_real.position
+    }
+    /// get the relative position in wayland world
+    pub fn relative_position_wl(&self) -> Position {
+        self.relative_region_wl.position
+    }
+    /// get the clip size in wayland world
+    pub fn clip_size_wl(&self) -> Size {
+        self.relative_region_wl.size
+    }
+
+    /// get the clip size in real world
+    pub fn clip_size_real(&self) -> Size {
+        self.relative_region_real.size
+    }
 }
 
 /// contain the output and their messages
@@ -72,6 +126,16 @@ impl WlOutputInfo {
     /// get the wl_output
     pub fn wl_output(&self) -> &WlOutput {
         &self.output
+    }
+
+    /// get the position
+    pub fn position(&self) -> Position {
+        self.position
+    }
+
+    /// get the logical size
+    pub fn logical_size(&self) -> Size {
+        self.logical_size
     }
     pub(crate) fn new(output: WlOutput) -> Self {
         Self {

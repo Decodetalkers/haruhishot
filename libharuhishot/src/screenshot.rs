@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    HaruhiShotState, TopLevel, WlOutputInfo,
+    ClipRegion, HaruhiShotState, TopLevel, WlOutputInfo,
     haruhierror::HaruhiError,
     overlay::LayerShellState,
     state::{CaptureInfo, CaptureState, FrameInfo},
@@ -143,6 +143,19 @@ struct CaptureOutputData {
     screen_position: Position,
 }
 
+impl CaptureOutputData {
+    /// The regin in real world
+    fn region_real(&self) -> Region {
+        Region {
+            position: self.screen_position,
+            size: Size {
+                width: self.real_width as i32,
+                height: self.real_height as i32,
+            },
+        }
+    }
+}
+
 #[allow(unused)]
 #[derive(Debug, Clone)]
 struct CaptureTopLevelData {
@@ -162,6 +175,12 @@ struct CaptureTopLevelData {
 pub struct ImageViewInfo {
     pub info: ImageInfo,
     pub region: Region,
+}
+
+#[derive(Debug, Clone)]
+pub struct ClipImageViewInfo {
+    pub info: ImageInfo,
+    pub region: ClipRegion,
 }
 
 /// Describe the capture option
@@ -495,7 +514,7 @@ impl HaruhiShotState {
         &mut self,
         option: CaptureOption,
         callback: F,
-    ) -> Result<ImageViewInfo, HaruhiError>
+    ) -> Result<Vec<ClipImageViewInfo>, HaruhiError>
     where
         F: AreaSelectCallback,
     {
@@ -575,25 +594,29 @@ impl HaruhiShotState {
         event_queue.roundtrip(&mut state)?;
         let region = region_re?;
 
-        let shotdata = data_list
+        let shotdatas: Vec<&AreaShotInfo> = data_list
             .iter()
-            .find(|data| data.in_this_screen(region))
-            .ok_or(HaruhiError::CaptureFailed("not in region".to_owned()))?;
-        let area = shotdata.clip_area(region).expect("should have");
-        let mut frame_mmap = unsafe { MmapMut::map_mut(&shotdata.mem_file).unwrap() };
+            .filter(|data| data.in_this_screen(region))
+            .collect();
+        let mut areas = vec![];
+        for shotdata in shotdatas {
+            let area = shotdata.clip_area(region).expect("should have");
+            let mut frame_mmap = unsafe { MmapMut::map_mut(&shotdata.mem_file).unwrap() };
 
-        let converter = crate::convert::create_converter(shotdata.data.frame_format).unwrap();
-        let color_type = converter.convert_inplace(&mut frame_mmap);
+            let converter = crate::convert::create_converter(shotdata.data.frame_format).unwrap();
+            let color_type = converter.convert_inplace(&mut frame_mmap);
 
-        Ok(ImageViewInfo {
-            info: ImageInfo {
-                data: frame_mmap.deref().into(),
-                width: shotdata.data.width,
-                height: shotdata.data.height,
-                color_type,
-            },
-            region: area,
-        })
+            areas.push(ClipImageViewInfo {
+                info: ImageInfo {
+                    data: frame_mmap.deref().into(),
+                    width: shotdata.data.width,
+                    height: shotdata.data.height,
+                    color_type,
+                },
+                region: area,
+            })
+        }
+        Ok(areas)
     }
 }
 
@@ -606,25 +629,55 @@ impl AreaShotInfo {
     fn in_this_screen(
         &self,
         Region {
-            position: point, ..
+            position: point,
+            size,
         }: Region,
     ) -> bool {
+        let mut corners = vec![];
+        // top left
+        {
+            corners.push(point);
+        }
+        // top right
+        {
+            let mut point = point;
+            point.x += size.width;
+            corners.push(point);
+        }
+        // bottom left
+        {
+            let mut point = point;
+            point.y += size.height;
+            corners.push(point);
+        }
+
+        // bottom right
+        {
+            let mut point = point;
+            point.y += size.height;
+            point.x += size.width;
+            corners.push(point);
+        }
         let CaptureOutputData {
             real_width,
             real_height,
             screen_position: Position { x, y },
             ..
         } = self.data;
-        if point.y < y
-            || point.x < x
-            || point.x > x + real_width as i32
-            || point.y > y + real_height as i32
-        {
-            return false;
+        for point in corners {
+            if point.y < y
+                || point.x < x
+                || point.x > x + real_width as i32
+                || point.y > y + real_height as i32
+            {
+                continue;
+            }
+            return true;
         }
-        true
+
+        false
     }
-    fn clip_area(&self, region: Region) -> Option<Region> {
+    fn clip_area(&self, region: Region) -> Option<ClipRegion> {
         if !self.in_this_screen(region) {
             return None;
         }
@@ -640,18 +693,36 @@ impl AreaShotInfo {
             position: point,
             size,
         } = region;
-        let relative_point = point - screen_position;
+        let mut relative_point_real = point - screen_position;
+        relative_point_real.x = relative_point_real.x.max(0);
+        relative_point_real.y = relative_point_real.y.max(0);
         let position = Position {
-            x: (relative_point.x as f64 * width as f64 / real_width as f64) as i32,
-            y: (relative_point.y as f64 * height as f64 / real_height as f64) as i32,
+            x: (relative_point_real.x as f64 * width as f64 / real_width as f64) as i32,
+            y: (relative_point_real.y as f64 * height as f64 / real_height as f64) as i32,
         };
+        let max_width = (real_width as i32 - relative_point_real.x).max(0) as u32;
+        let max_height = (real_height as i32 - relative_point_real.y).max(0) as u32;
+        let max_width_wl = (width as i32 - position.x).max(0) as u32;
+        let max_height_wl = (height as i32 - position.y).max(0) as u32;
 
-        Some(Region {
-            position,
-            size: Size {
-                width: (size.width as f64 * width as f64 / real_width as f64) as i32,
-                height: (size.height as f64 * height as f64 / real_height as f64) as i32,
+        Some(ClipRegion {
+            relative_region_real: Region {
+                position: relative_point_real,
+                size: Size {
+                    width: (size.width as f64 * width as f64 / real_width as f64)
+                        .min(max_width as f64) as i32,
+                    height: (size.height as f64 * height as f64 / real_height as f64)
+                        .min(max_height as f64) as i32,
+                },
             },
+            relative_region_wl: Region {
+                position,
+                size: Size {
+                    width: size.width.min(max_width_wl as i32),
+                    height: size.height.min(max_height_wl as i32),
+                },
+            },
+            display_region: self.data.region_real(),
         })
     }
 }

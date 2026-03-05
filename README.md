@@ -63,6 +63,18 @@ or
 haruhishot --output DP-2 --stdout > test.png
 ```
 
+Shot all screens (fullscreen)
+
+```
+haruhishot -F --stdout > test.png
+```
+
+or
+
+```
+haruhishot --fullscreen --stdout > test.png
+```
+
 Get Color
 
 ```
@@ -84,7 +96,6 @@ haruhishot --color
 ## TODO
 
 * I want to add a slint frontend
-* ~~Real Fullscreen shot~~
 * In the code of wayshot, it seems need to make change if meet some format, but it works well on my computer, so..
 
 ## Thanks to the help of developers in Smithay

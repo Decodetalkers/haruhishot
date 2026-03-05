@@ -37,6 +37,13 @@ pub enum HaruhiCli {
         #[arg(value_name = "pointer", long, default_value = "false")]
         cursor: bool,
     },
+    #[command(long_flag = "fullscreen", short_flag = 'F', about = "capture all outputs")]
+    Fullscreen {
+        #[arg(value_name = "stdout", long)]
+        stdout: bool,
+        #[arg(value_name = "pointer", long, default_value = "false")]
+        cursor: bool,
+    },
     #[command(long_flag = "color", short_flag = 'C', about = "get color")]
     Color,
 }

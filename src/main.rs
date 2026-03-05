@@ -6,7 +6,9 @@ use dialoguer::theme::ColorfulTheme;
 use image::codecs::png::PngEncoder;
 use image::{GenericImageView, ImageEncoder, ImageError};
 pub use libharuhishot::HaruhiShotState;
-use libharuhishot::{CaptureOption, ImageInfo, ImageViewInfo, Position, Region, Size};
+use libharuhishot::{
+    CaptureOption, ClipImageViewInfo, ClipRegion, ImageInfo, Position, Region, Size,
+};
 
 use std::io::{BufWriter, Write, stdout};
 use std::{env, fs, path::PathBuf};
@@ -130,20 +132,7 @@ fn capture_area(
     use_stdout: bool,
     pointer: bool,
 ) -> Result<HaruhiShotResult, HaruhiImageWriteError> {
-    let ImageViewInfo {
-        info:
-            ImageInfo {
-                data,
-                width: img_width,
-                height: img_height,
-                color_type,
-            },
-        region:
-            Region {
-                position: Position { x, y },
-                size: Size { width, height },
-            },
-    } = state.capture_area(pointer.to_capture_option(), |w_conn: &HaruhiShotState| {
+    let views = state.capture_area(pointer.to_capture_option(), |w_conn: &HaruhiShotState| {
         let info = libwaysip::WaySip::new()
             .with_connection(w_conn.connection().clone())
             .with_selection_type(libwaysip::SelectionType::Area)
@@ -154,16 +143,73 @@ fn capture_area(
             ))?;
         waysip_to_region(info.size(), info.left_top_point())
     })?;
+    // Calculate the total canvas size
+    let mut min_x = i32::MAX;
+    let mut min_y = i32::MAX;
+    let mut max_x = i32::MIN;
+    let mut max_y = i32::MIN;
+    for view in &views {
+        let Position { x, y } = view.region.absolute_position_real();
+        let Size { width, height } = view.region.clip_size_real();
 
-    let mut buff = std::io::Cursor::new(Vec::new());
-    PngEncoder::new(&mut buff).write_image(&data, img_width, img_height, color_type.into())?;
-    let img = image::load_from_memory_with_format(buff.get_ref(), image::ImageFormat::Png).unwrap();
-    let clipimage = img.view(x as u32, y as u32, width as u32, height as u32);
+        min_x = min_x.min(x);
+        min_y = min_y.min(y);
+        max_x = max_x.max(x + width);
+        max_y = max_y.max(y + height);
+    }
+    let total_width = (max_x - min_x) as u32;
+    let total_height = (max_y - min_y) as u32;
+
+    let mut combined_image = image::RgbaImage::new(total_width, total_height);
+    for ClipImageViewInfo {
+        info:
+            ImageInfo {
+                data,
+                width: img_width,
+                height: img_height,
+                ..
+            },
+        region,
+    } in views
+    {
+        // Load the captured image
+        let img = image::ImageBuffer::from_raw(img_width, img_height, data).ok_or(
+            HaruhiImageWriteError::ImageError(ImageError::Parameter(
+                image::error::ParameterError::from_kind(
+                    image::error::ParameterErrorKind::DimensionMismatch,
+                ),
+            )),
+        )?;
+
+        // we use the relative position to make image
+        let Position { x, y } = region.relative_position_wl();
+
+        let Size { width, height } = region.clip_size_real();
+
+        let subimage = img
+            .view(x as u32, y as u32, width as u32, height as u32)
+            .to_image();
+        let rgba_img: image::RgbaImage = subimage;
+
+        // we use the real position to calculate the position
+        let Position { x, y } = region.absolute_position_real();
+        // Calculate the position in he combined image
+        let offset_x = (x - min_x) as u32;
+        let offset_y = (y - min_y) as u32;
+
+        // Copy the output image to the combined image
+        for (x, y, pixel) in rgba_img.enumerate_pixels() {
+            let target_x = offset_x + x;
+            let target_y = offset_y + y;
+            if target_x < total_width && target_y < total_height {
+                combined_image.put_pixel(target_x, target_y, *pixel);
+            }
+        }
+    }
+
     if use_stdout {
         let mut buff = std::io::Cursor::new(Vec::new());
-        clipimage
-            .to_image()
-            .write_to(&mut buff, image::ImageFormat::Png)?;
+        combined_image.write_to(&mut buff, image::ImageFormat::Png)?;
         let content = buff.get_ref();
         let stdout = stdout();
         let mut writer = BufWriter::new(stdout.lock());
@@ -171,25 +217,12 @@ fn capture_area(
         Ok(HaruhiShotResult::StdoutSucceeded)
     } else {
         let file = random_file_path();
-        clipimage.to_image().save(&file)?;
+        combined_image.save(&file)?;
         Ok(HaruhiShotResult::SaveToFile(file))
     }
 }
 fn get_color(state: &mut HaruhiShotState) -> Result<HaruhiShotResult, HaruhiImageWriteError> {
-    let ImageViewInfo {
-        info:
-            ImageInfo {
-                data,
-                width: img_width,
-                height: img_height,
-                color_type,
-            },
-        region:
-            Region {
-                position: Position { x, y },
-                size: Size { width, height },
-            },
-    } = state.capture_area(CaptureOption::None, |w_conn: &HaruhiShotState| {
+    let mut views = state.capture_area(CaptureOption::None, |w_conn: &HaruhiShotState| {
         let info = libwaysip::WaySip::new()
             .with_connection(w_conn.connection().clone())
             .with_selection_type(libwaysip::SelectionType::Point)
@@ -200,6 +233,24 @@ fn get_color(state: &mut HaruhiShotState) -> Result<HaruhiShotResult, HaruhiImag
             ))?;
         waysip_to_region(info.size(), info.left_top_point())
     })?;
+    let ClipImageViewInfo {
+        info:
+            ImageInfo {
+                data,
+                width: img_width,
+                height: img_height,
+                color_type,
+            },
+        region:
+            ClipRegion {
+                relative_region_real:
+                    Region {
+                        position: Position { x, y },
+                        size: Size { width, height },
+                    },
+                ..
+            },
+    } = views.remove(0);
 
     let mut buff = std::io::Cursor::new(Vec::new());
     PngEncoder::new(&mut buff).write_image(&data, img_width, img_height, color_type.into())?;
@@ -250,6 +301,88 @@ fn notify_result(shot_result: Result<HaruhiShotResult, HaruhiImageWriteError>) {
     }
 }
 
+fn capture_fullscreen(
+    state: &mut HaruhiShotState,
+    use_stdout: bool,
+    pointer: bool,
+) -> Result<HaruhiShotResult, HaruhiImageWriteError> {
+    let outputs = state.outputs().clone();
+    if outputs.is_empty() {
+        return Err(HaruhiImageWriteError::OutputNotExist);
+    }
+
+    // Calculate the total canvas size
+    let mut min_x = i32::MAX;
+    let mut min_y = i32::MAX;
+    let mut max_x = i32::MIN;
+    let mut max_y = i32::MIN;
+
+    for output in &outputs {
+        let position = output.position();
+        let size = output.logical_size();
+        let x = position.x;
+        let y = position.y;
+        let width = size.width;
+        let height = size.height;
+
+        min_x = min_x.min(x);
+        min_y = min_y.min(y);
+        max_x = max_x.max(x + width);
+        max_y = max_y.max(y + height);
+    }
+
+    let total_width = (max_x - min_x) as u32;
+    let total_height = (max_y - min_y) as u32;
+
+    // Create a new image with the total size
+    let mut combined_image = image::RgbaImage::new(total_width, total_height);
+
+    // Capture each output and copy to the combined image
+    for output in outputs {
+        let Size { width, height } = output.logical_size();
+        let image_info =
+            state.capture_single_output(pointer.to_capture_option(), output.clone())?;
+
+        // Load the captured image
+        let img = image::imageops::resize(
+            &image::ImageBuffer::from_raw(image_info.width, image_info.height, image_info.data)
+                .ok_or(HaruhiImageWriteError::ImageError(ImageError::Parameter(
+                    image::error::ParameterError::from_kind(
+                        image::error::ParameterErrorKind::DimensionMismatch,
+                    ),
+                )))?,
+            width as u32,
+            height as u32,
+            image::imageops::FilterType::Gaussian,
+        );
+
+        let rgba_img: image::RgbaImage = img;
+
+        // Calculate the position in the combined image
+        let position = output.position();
+        let offset_x = (position.x - min_x) as u32;
+        let offset_y = (position.y - min_y) as u32;
+
+        // Copy the output image to the combined image
+        for (x, y, pixel) in rgba_img.enumerate_pixels() {
+            let target_x = offset_x + x;
+            let target_y = offset_y + y;
+            if target_x < total_width && target_y < total_height {
+                combined_image.put_pixel(target_x, target_y, *pixel);
+            }
+        }
+    }
+
+    let combined_image_info = ImageInfo {
+        data: combined_image.into_raw(),
+        width: total_width,
+        height: total_height,
+        color_type: image::ColorType::Rgba8,
+    };
+
+    write_to_image(combined_image_info, use_stdout)
+}
+
 pub fn waysip_to_region(
     size: libwaysip::Size,
     point: libwaysip::Position,
@@ -287,6 +420,10 @@ fn main() {
             stdout,
             cursor: pointer,
         } => notify_result(capture_output(&mut state, output, stdout, pointer)),
+        HaruhiCli::Fullscreen {
+            stdout,
+            cursor: pointer,
+        } => notify_result(capture_fullscreen(&mut state, stdout, pointer)),
         HaruhiCli::Slurp {
             stdout,
             cursor: pointer,
