@@ -144,12 +144,13 @@ struct CaptureOutputData {
 }
 
 impl CaptureOutputData {
-    fn region(&self) -> Region {
+    /// The regin in real world
+    fn region_real(&self) -> Region {
         Region {
             position: self.screen_position,
             size: Size {
-                width: self.width as i32,
-                height: self.height as i32,
+                width: self.real_width as i32,
+                height: self.real_height as i32,
             },
         }
     }
@@ -721,7 +722,7 @@ impl AreaShotInfo {
                     height: size.height.min(max_height_wl as i32),
                 },
             },
-            display_region: self.data.region(),
+            display_region: self.data.region_real(),
         })
     }
 }

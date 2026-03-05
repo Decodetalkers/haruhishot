@@ -150,9 +150,7 @@ fn capture_area(
     let mut max_y = i32::MIN;
     for view in &views {
         let Position { x, y } = view.region.absolute_position_real();
-        println!("absolute_position: x : {x}, y: {y}");
-        let Size { width, height } = view.region.clip_size_wl();
-        println!("absolute_position: width : {width}, height: {height}");
+        let Size { width, height } = view.region.clip_size_real();
 
         min_x = min_x.min(x);
         min_y = min_y.min(y);
@@ -162,7 +160,6 @@ fn capture_area(
     let total_width = (max_x - min_x) as u32;
     let total_height = (max_y - min_y) as u32;
 
-    println!("min_x = {min_x}, min_y = {min_y}");
     let mut combined_image = image::RgbaImage::new(total_width, total_height);
     for ClipImageViewInfo {
         info:
@@ -183,6 +180,8 @@ fn capture_area(
                 ),
             )),
         )?;
+
+        // we use the relative position to make image
         let Position { x, y } = region.relative_position_wl();
 
         let Size { width, height } = region.clip_size_real();
@@ -192,6 +191,7 @@ fn capture_area(
             .to_image();
         let rgba_img: image::RgbaImage = subimage;
 
+        // we use the real position to calculate the position
         let Position { x, y } = region.absolute_position_real();
         // Calculate the position in he combined image
         let offset_x = (x - min_x) as u32;

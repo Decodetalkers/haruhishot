@@ -60,27 +60,40 @@ pub struct Region {
     pub position: Position,
     pub size: Size,
 }
+
+/// Describe the information about clip area
 #[derive(Debug, Clone, Copy)]
 pub struct ClipRegion {
+    /// It describes the region in real world
     pub relative_region_real: Region,
+    /// It describes the region in wayland world
     pub relative_region_wl: Region,
+    /// display_region, in real world
     pub display_region: Region,
 }
 
 impl ClipRegion {
+    /// the the real absolute position
+    /// NOTE: no wayland version, because the screen position is real
     pub fn absolute_position_real(&self) -> Position {
         let position = self.display_region.position;
         position + self.relative_region_real.position
     }
+
+    /// get the relative position in real world
     pub fn relative_position_real(&self) -> Position {
         self.relative_region_real.position
     }
+    /// get the relative position in wayland world
     pub fn relative_position_wl(&self) -> Position {
         self.relative_region_wl.position
     }
+    /// get the clip size in wayland world
     pub fn clip_size_wl(&self) -> Size {
         self.relative_region_wl.size
     }
+
+    /// get the clip size in real world
     pub fn clip_size_real(&self) -> Size {
         self.relative_region_real.size
     }
