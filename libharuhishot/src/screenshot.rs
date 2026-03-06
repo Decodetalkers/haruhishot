@@ -595,6 +595,50 @@ impl HaruhiShotState {
             region: area,
         })
     }
+    /// Capture all outputs and concatenate them horizontally.
+    /// The resulting image width is the sum of all output widths,
+    /// and each output image is copied side-by-side into the new image.
+    pub fn capture_all_outputs(
+        &mut self,
+        option: CaptureOption,
+    ) -> Result<ImageInfo, HaruhiError> {
+        let outputs = self.outputs().clone();
+
+        let mut images: Vec<ImageInfo> = Vec::with_capacity(outputs.len());
+        for output in outputs.into_iter() {
+            let image = self.capture_single_output(option, output)?;
+            images.push(image);
+        }
+
+        if images.is_empty() {
+            return Err(HaruhiError::CaptureFailed("No outputs found".to_owned()));
+        }
+
+        let total_width: u32 = images.iter().map(|img| img.width).sum();
+        let max_height: u32 = images.iter().map(|img| img.height).max().unwrap_or(0);
+        // RGBA8: 4 bytes per pixel
+        let bytes_per_pixel: u32 = 4;
+        let mut combined: Vec<u8> = vec![0u8; (total_width * max_height * bytes_per_pixel) as usize];
+
+        let mut x_offset: u32 = 0;
+        for img in &images {
+            for row in 0..img.height {
+                let src_start = (row * img.width * bytes_per_pixel) as usize;
+                let src_end = src_start + (img.width * bytes_per_pixel) as usize;
+                let dst_start = ((row * total_width + x_offset) * bytes_per_pixel) as usize;
+                let dst_end = dst_start + (img.width * bytes_per_pixel) as usize;
+                combined[dst_start..dst_end].copy_from_slice(&img.data[src_start..src_end]);
+            }
+            x_offset += img.width;
+        }
+
+        Ok(ImageInfo {
+            data: combined,
+            width: total_width,
+            height: max_height,
+            color_type: images[0].color_type,
+        })
+    }
 }
 
 struct AreaShotInfo {

@@ -266,6 +266,15 @@ pub fn waysip_to_region(
     Ok(Region { position, size })
 }
 
+fn capture_all_outputs(
+    state: &mut HaruhiShotState,
+    use_stdout: bool,
+    pointer: bool,
+) -> Result<HaruhiShotResult, HaruhiImageWriteError> {
+    let image_info = state.capture_all_outputs(pointer.to_capture_option())?;
+    write_to_image(image_info, use_stdout)
+}
+
 fn main() {
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
@@ -296,6 +305,10 @@ fn main() {
         HaruhiCli::Color => {
             notify_result(get_color(&mut state));
         }
+        HaruhiCli::AllOutputs {
+            stdout,
+            cursor: pointer,
+        } => notify_result(capture_all_outputs(&mut state, stdout, pointer)),
     }
 }
 
