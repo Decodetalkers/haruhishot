@@ -4,8 +4,9 @@ use clap::Parser;
 use dialoguer::FuzzySelect;
 use dialoguer::theme::ColorfulTheme;
 use image::codecs::png::PngEncoder;
-use image::{GenericImageView, ImageEncoder, ImageError};
+use image::{GenericImageView, ImageEncoder, ImageError, Rgba};
 pub use libharuhishot::HaruhiShotState;
+use libharuhishot::reexport::Transform;
 use libharuhishot::{
     CaptureOption, ClipImageViewInfo, ClipRegion, ImageInfo, Position, Region, Size,
 };
@@ -167,6 +168,7 @@ fn capture_area(
                 data,
                 width: img_width,
                 height: img_height,
+                transform,
                 ..
             },
         region,
@@ -180,6 +182,24 @@ fn capture_area(
                 ),
             )),
         )?;
+
+        let img = match transform {
+            Transform::Normal => img,
+            Transform::_90 => image::imageops::rotate90(&img),
+            Transform::_180 => image::imageops::rotate180(&img),
+            Transform::_270 => image::imageops::rotate270(&img),
+            Transform::Flipped => image::imageops::flip_vertical(&img),
+            Transform::Flipped90 => {
+                image::imageops::flip_vertical(&image::imageops::rotate90(&img))
+            }
+            Transform::Flipped180 => {
+                image::imageops::flip_vertical(&image::imageops::rotate180(&img))
+            }
+            Transform::Flipped270 => {
+                image::imageops::flip_vertical(&image::imageops::rotate270(&img))
+            }
+            _ => unreachable!(),
+        };
 
         // we use the relative position to make image
         let Position { x, y } = region.relative_position_wl();
@@ -239,7 +259,8 @@ fn get_color(state: &mut HaruhiShotState) -> Result<HaruhiShotResult, HaruhiImag
                 data,
                 width: img_width,
                 height: img_height,
-                color_type,
+                transform,
+                ..
             },
         region:
             ClipRegion {
@@ -251,10 +272,23 @@ fn get_color(state: &mut HaruhiShotState) -> Result<HaruhiShotResult, HaruhiImag
                 ..
             },
     } = views.remove(0);
-
-    let mut buff = std::io::Cursor::new(Vec::new());
-    PngEncoder::new(&mut buff).write_image(&data, img_width, img_height, color_type.into())?;
-    let img = image::load_from_memory_with_format(buff.get_ref(), image::ImageFormat::Png).unwrap();
+    let image: image::ImageBuffer<Rgba<u8>, Vec<u8>> =
+        image::ImageBuffer::from_raw(img_width, img_height, data).unwrap();
+    let img = match transform {
+        Transform::Normal => image,
+        Transform::_90 => image::imageops::rotate90(&image),
+        Transform::_180 => image::imageops::rotate180(&image),
+        Transform::_270 => image::imageops::rotate270(&image),
+        Transform::Flipped => image::imageops::flip_vertical(&image),
+        Transform::Flipped90 => image::imageops::flip_vertical(&image::imageops::rotate90(&image)),
+        Transform::Flipped180 => {
+            image::imageops::flip_vertical(&image::imageops::rotate180(&image))
+        }
+        Transform::Flipped270 => {
+            image::imageops::flip_vertical(&image::imageops::rotate270(&image))
+        }
+        _ => unreachable!(),
+    };
 
     let clipimage = img.view(x as u32, y as u32, width as u32, height as u32);
     let pixel = clipimage.get_pixel(0, 0);
@@ -342,15 +376,33 @@ fn capture_fullscreen(
         let Size { width, height } = output.logical_size();
         let image_info =
             state.capture_single_output(pointer.to_capture_option(), output.clone())?;
-
-        // Load the captured image
-        let img = image::imageops::resize(
-            &image::ImageBuffer::from_raw(image_info.width, image_info.height, image_info.data)
+        let image =
+            image::ImageBuffer::from_raw(image_info.width, image_info.height, image_info.data)
                 .ok_or(HaruhiImageWriteError::ImageError(ImageError::Parameter(
                     image::error::ParameterError::from_kind(
                         image::error::ParameterErrorKind::DimensionMismatch,
                     ),
-                )))?,
+                )))?;
+        let image = match image_info.transform {
+            Transform::Normal => image,
+            Transform::_90 => image::imageops::rotate90(&image),
+            Transform::_180 => image::imageops::rotate180(&image),
+            Transform::_270 => image::imageops::rotate270(&image),
+            Transform::Flipped => image::imageops::flip_vertical(&image),
+            Transform::Flipped90 => {
+                image::imageops::flip_vertical(&image::imageops::rotate90(&image))
+            }
+            Transform::Flipped180 => {
+                image::imageops::flip_vertical(&image::imageops::rotate180(&image))
+            }
+            Transform::Flipped270 => {
+                image::imageops::flip_vertical(&image::imageops::rotate270(&image))
+            }
+            _ => unreachable!(),
+        };
+        // Load the captured image
+        let img = image::imageops::resize(
+            &image,
             width as u32,
             height as u32,
             image::imageops::FilterType::Gaussian,
@@ -378,6 +430,7 @@ fn capture_fullscreen(
         width: total_width,
         height: total_height,
         color_type: image::ColorType::Rgba8,
+        transform: libharuhishot::reexport::Transform::Normal,
     };
 
     write_to_image(combined_image_info, use_stdout)
@@ -453,6 +506,7 @@ fn write_to_stdout(
         width,
         height,
         color_type,
+        ..
     }: ImageInfo,
 ) -> Result<HaruhiShotResult, HaruhiImageWriteError> {
     let stdout = stdout();
@@ -467,6 +521,7 @@ fn write_to_file(
         width,
         height,
         color_type,
+        ..
     }: ImageInfo,
 ) -> Result<HaruhiShotResult, HaruhiImageWriteError> {
     let file = random_file_path();
