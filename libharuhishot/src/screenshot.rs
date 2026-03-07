@@ -125,6 +125,7 @@ pub struct ImageInfo {
     pub width: u32,
     pub height: u32,
     pub color_type: ColorType,
+    pub transform: wl_output::Transform,
 }
 
 #[allow(unused)]
@@ -179,6 +180,12 @@ pub struct ImageViewInfo {
 
 #[derive(Debug, Clone)]
 pub struct ClipImageViewInfo {
+    pub region: Region,
+    pub areas: Vec<ClipImageViewInfoArea>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ClipImageViewInfoArea {
     pub info: ImageInfo,
     pub region: ClipRegion,
 }
@@ -465,6 +472,7 @@ impl HaruhiShotState {
             width,
             height,
             frame_format,
+            transform,
             ..
         } = self.capture_output_inner(output, option, mem_file.as_fd(), Some(&mem_file))?;
 
@@ -478,6 +486,7 @@ impl HaruhiShotState {
             width,
             height,
             color_type,
+            transform,
         })
     }
 
@@ -493,6 +502,7 @@ impl HaruhiShotState {
             width,
             height,
             frame_format,
+            transform,
             ..
         } = self.capture_toplevel_inner(toplevel, option, mem_file.as_fd(), Some(&mem_file))?;
 
@@ -506,6 +516,7 @@ impl HaruhiShotState {
             width,
             height,
             color_type,
+            transform,
         })
     }
 
@@ -514,7 +525,7 @@ impl HaruhiShotState {
         &mut self,
         option: CaptureOption,
         callback: F,
-    ) -> Result<Vec<ClipImageViewInfo>, HaruhiError>
+    ) -> Result<ClipImageViewInfo, HaruhiError>
     where
         F: AreaSelectCallback,
     {
@@ -606,17 +617,21 @@ impl HaruhiShotState {
             let converter = crate::convert::create_converter(shotdata.data.frame_format).unwrap();
             let color_type = converter.convert_inplace(&mut frame_mmap);
 
-            areas.push(ClipImageViewInfo {
+            areas.push(ClipImageViewInfoArea {
                 info: ImageInfo {
                     data: frame_mmap.deref().into(),
                     width: shotdata.data.width,
                     height: shotdata.data.height,
                     color_type,
+                    transform: shotdata.data.transform,
                 },
                 region: area,
             })
         }
-        Ok(areas)
+        Ok(ClipImageViewInfo {
+            region,
+            areas,
+        })
     }
 }
 
@@ -693,6 +708,21 @@ impl AreaShotInfo {
             position: point,
             size,
         } = region;
+        let mut size_width = size.width;
+        let mut size_height = size.height;
+
+        // top_right
+        {
+            let mut point = point;
+            point.x += size.width;
+            size_width = size_width.min(point.x - screen_position.x);
+        }
+        // bottom left
+        {
+            let mut point = point;
+            point.y += size.height;
+            size_height = size_height.min(point.y - screen_position.y);
+        }
         let mut relative_point_real = point - screen_position;
         relative_point_real.x = relative_point_real.x.max(0);
         relative_point_real.y = relative_point_real.y.max(0);
@@ -709,17 +739,17 @@ impl AreaShotInfo {
             relative_region_real: Region {
                 position: relative_point_real,
                 size: Size {
-                    width: (size.width as f64 * width as f64 / real_width as f64)
+                    width: (size_width as f64 * width as f64 / real_width as f64)
                         .min(max_width as f64) as i32,
-                    height: (size.height as f64 * height as f64 / real_height as f64)
+                    height: (size_height as f64 * height as f64 / real_height as f64)
                         .min(max_height as f64) as i32,
                 },
             },
             relative_region_wl: Region {
                 position,
                 size: Size {
-                    width: size.width.min(max_width_wl as i32),
-                    height: size.height.min(max_height_wl as i32),
+                    width: size_width.min(max_width_wl as i32),
+                    height: size_height.min(max_height_wl as i32),
                 },
             },
             display_region: self.data.region_real(),
