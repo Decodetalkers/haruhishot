@@ -46,4 +46,15 @@ pub enum HaruhiCli {
     },
     #[command(long_flag = "color", short_flag = 'C', about = "get color")]
     Color,
+    #[command(
+        long_flag = "all-outputs",
+        short_flag = 'A',
+        about = "capture all outputs and concatenate horizontally"
+    )]
+    AllOutputs {
+        #[arg(value_name = "stdout", long)]
+        stdout: bool,
+        #[arg(value_name = "pointer", long, default_value = "false")]
+        cursor: bool,
+    },
 }
