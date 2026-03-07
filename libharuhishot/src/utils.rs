@@ -73,6 +73,12 @@ pub struct ClipRegion {
 }
 
 impl ClipRegion {
+    pub fn display_position_real(&self) -> Position {
+        self.display_region.position
+    }
+    pub fn display_logical_size(&self) -> Size {
+        self.display_region.size
+    }
     /// the the real absolute position
     /// NOTE: no wayland version, because the screen position is real
     pub fn absolute_position_real(&self) -> Position {

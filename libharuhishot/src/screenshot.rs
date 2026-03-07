@@ -180,6 +180,12 @@ pub struct ImageViewInfo {
 
 #[derive(Debug, Clone)]
 pub struct ClipImageViewInfo {
+    pub region: Region,
+    pub areas: Vec<ClipImageViewInfoArea>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ClipImageViewInfoArea {
     pub info: ImageInfo,
     pub region: ClipRegion,
 }
@@ -519,7 +525,7 @@ impl HaruhiShotState {
         &mut self,
         option: CaptureOption,
         callback: F,
-    ) -> Result<Vec<ClipImageViewInfo>, HaruhiError>
+    ) -> Result<ClipImageViewInfo, HaruhiError>
     where
         F: AreaSelectCallback,
     {
@@ -611,7 +617,7 @@ impl HaruhiShotState {
             let converter = crate::convert::create_converter(shotdata.data.frame_format).unwrap();
             let color_type = converter.convert_inplace(&mut frame_mmap);
 
-            areas.push(ClipImageViewInfo {
+            areas.push(ClipImageViewInfoArea {
                 info: ImageInfo {
                     data: frame_mmap.deref().into(),
                     width: shotdata.data.width,
@@ -622,7 +628,10 @@ impl HaruhiShotState {
                 region: area,
             })
         }
-        Ok(areas)
+        Ok(ClipImageViewInfo {
+            region,
+            areas,
+        })
     }
 }
 

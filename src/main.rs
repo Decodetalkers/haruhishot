@@ -8,7 +8,7 @@ use image::{GenericImageView, ImageEncoder, ImageError, Rgba};
 pub use libharuhishot::HaruhiShotState;
 use libharuhishot::reexport::Transform;
 use libharuhishot::{
-    CaptureOption, ClipImageViewInfo, ClipRegion, ImageInfo, Position, Region, Size,
+    CaptureOption, ClipImageViewInfoArea, ClipRegion, ImageInfo, Position, Region, Size,
 };
 
 use std::io::{BufWriter, Write, stdout};
@@ -149,9 +149,9 @@ fn capture_area(
     let mut min_y = i32::MAX;
     let mut max_x = i32::MIN;
     let mut max_y = i32::MIN;
-    for view in &views {
-        let Position { x, y } = view.region.absolute_position_real();
-        let Size { width, height } = view.region.clip_size_real();
+    for view in &views.areas {
+        let Position { x, y } = view.region.display_position_real();
+        let Size { width, height } = view.region.display_logical_size();
 
         min_x = min_x.min(x);
         min_y = min_y.min(y);
@@ -162,7 +162,7 @@ fn capture_area(
     let total_height = (max_y - min_y) as u32;
 
     let mut combined_image = image::RgbaImage::new(total_width, total_height);
-    for ClipImageViewInfo {
+    for ClipImageViewInfoArea {
         info:
             ImageInfo {
                 data,
@@ -172,7 +172,7 @@ fn capture_area(
                 ..
             },
         region,
-    } in views
+    } in views.areas
     {
         // Load the captured image
         let img = image::ImageBuffer::from_raw(img_width, img_height, data).ok_or(
@@ -200,25 +200,21 @@ fn capture_area(
             }
             _ => unreachable!(),
         };
-
-        // we use the relative position to make image
-        let Position { x, y } = region.relative_position_wl();
-
-        let Size { width, height } = region.clip_size_real();
-
-        let subimage = img
-            .view(x as u32, y as u32, width as u32, height as u32)
-            .to_image();
-        let rgba_img: image::RgbaImage = subimage;
-
+        let Size { width, height } = region.display_logical_size();
+        let img = image::imageops::resize(
+            &img,
+            width as u32,
+            height as u32,
+            image::imageops::FilterType::Gaussian,
+        );
         // we use the real position to calculate the position
-        let Position { x, y } = region.absolute_position_real();
+        let Position { x, y } = region.display_position_real();
         // Calculate the position in he combined image
         let offset_x = (x - min_x) as u32;
         let offset_y = (y - min_y) as u32;
 
         // Copy the output image to the combined image
-        for (x, y, pixel) in rgba_img.enumerate_pixels() {
+        for (x, y, pixel) in img.enumerate_pixels() {
             let target_x = offset_x + x;
             let target_y = offset_y + y;
             if target_x < total_width && target_y < total_height {
@@ -226,10 +222,19 @@ fn capture_area(
             }
         }
     }
+    let clip_region = views.region;
+    let image = combined_image
+        .view(
+            clip_region.position.x as u32,
+            clip_region.position.y as u32,
+            clip_region.size.width as u32,
+            clip_region.size.height as u32,
+        )
+        .to_image();
 
     if use_stdout {
         let mut buff = std::io::Cursor::new(Vec::new());
-        combined_image.write_to(&mut buff, image::ImageFormat::Png)?;
+        image.write_to(&mut buff, image::ImageFormat::Png)?;
         let content = buff.get_ref();
         let stdout = stdout();
         let mut writer = BufWriter::new(stdout.lock());
@@ -237,7 +242,7 @@ fn capture_area(
         Ok(HaruhiShotResult::StdoutSucceeded)
     } else {
         let file = random_file_path();
-        combined_image.save(&file)?;
+        image.save(&file)?;
         Ok(HaruhiShotResult::SaveToFile(file))
     }
 }
@@ -253,7 +258,7 @@ fn get_color(state: &mut HaruhiShotState) -> Result<HaruhiShotResult, HaruhiImag
             ))?;
         waysip_to_region(info.size(), info.left_top_point())
     })?;
-    let ClipImageViewInfo {
+    let ClipImageViewInfoArea {
         info:
             ImageInfo {
                 data,
@@ -271,7 +276,7 @@ fn get_color(state: &mut HaruhiShotState) -> Result<HaruhiShotResult, HaruhiImag
                     },
                 ..
             },
-    } = views.remove(0);
+    } = views.areas.remove(0);
     let image: image::ImageBuffer<Rgba<u8>, Vec<u8>> =
         image::ImageBuffer::from_raw(img_width, img_height, data).unwrap();
     let img = match transform {
