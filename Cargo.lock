@@ -970,7 +970,7 @@ dependencies = [
 
 [[package]]
 name = "haruhishot"
-version = "0.6.2"
+version = "0.6.3"
 dependencies = [
  "clap",
  "dialoguer",
@@ -1164,7 +1164,7 @@ dependencies = [
 
 [[package]]
 name = "libharuhishot"
-version = "0.6.2"
+version = "0.6.3"
 dependencies = [
  "image",
  "memmap2",
