@@ -149,10 +149,14 @@ fn capture_area(
     let mut min_y = i32::MAX;
     let mut max_x = i32::MIN;
     let mut max_y = i32::MIN;
+    let mut start_x = i32::MAX;
+    let mut start_y = i32::MAX;
     for view in &views.areas {
         let Position { x, y } = view.region.display_position_real();
         let Size { width, height } = view.region.display_logical_size();
 
+        start_x = start_x.min(x);
+        start_y = start_y.min(y);
         min_x = min_x.min(x);
         min_y = min_y.min(y);
         max_x = max_x.max(x + width);
@@ -225,8 +229,8 @@ fn capture_area(
     let clip_region = views.region;
     let image = combined_image
         .view(
-            clip_region.position.x as u32,
-            clip_region.position.y as u32,
+            (clip_region.position.x - start_x) as u32,
+            (clip_region.position.y - start_y) as u32,
             clip_region.size.width as u32,
             clip_region.size.height as u32,
         )
